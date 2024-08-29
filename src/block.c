@@ -64,6 +64,7 @@ struct extent_path {
         int             visit_num;
         int             flags;
         blk64_t         end_blk;
+        blk64_t         blk;
         void            *curr;
 };
 
@@ -79,6 +80,7 @@ struct ext2_extent_handle {
         int                     type;
         int                     level;
         int                     max_depth;
+        int                     max_paths;
         struct extent_path      *path;
 };
 
@@ -180,6 +182,7 @@ errcode_t local_ext2fs_extent_open(ext2_filsys fs, struct ext2_inode inode,
                 ((((__u64) handle->inode->i_size_high << 32) +
                   handle->inode->i_size + (fs->blocksize - 1))
                  >> EXT2_BLOCK_SIZE_BITS(fs->super));
+        handle->path[0].blk = 0;
         handle->path[0].visit_num = 1;
         handle->level = 0;
         handle->magic = EXT2_ET_MAGIC_EXTENT_HANDLE;
