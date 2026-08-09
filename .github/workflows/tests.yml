@@ -1,0 +1,121 @@
+name: Tests
+
+on:
+  push:
+    # Branches are covered by their pull request. Without this, every push to a
+    # branch that has one runs the whole workflow twice, publishes the results
+    # twice, and leaves a skipped "event file" check behind. Keeping master is
+    # what gives the published results a baseline to compare against
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Build and run the test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ext4magic links against e2fsprogs, libmagic, zlib and bzip2, and the
+      # suite builds its own filesystems with mke2fs and fills them with debugfs
+      - name: Install the build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential autoconf automake libtool \
+            libext2fs-dev comerr-dev libmagic-dev libblkid-dev uuid-dev \
+            zlib1g-dev libbz2-dev e2fsprogs
+
+      - name: Build ext4magic
+        run: |
+          ./configure
+          make
+
+      # The suite mounts loop devices to write a real journal, which is what
+      # ext4magic recovers from, and ext4magic clears its whole operation mode
+      # for a caller whose uid is not zero. Both need root, so the suite runs
+      # under sudo rather than skipping most of what it covers.
+      # "sudo -E" keeps the environment, and PATH is passed explicitly because
+      # sudo resets it whatever -E says
+      - name: Run the test suite
+        run: |
+          sudo -E env "PATH=$PATH" ./tests/run_tests.sh \
+            --junit test-results/results.xml \
+            --summary "$GITHUB_STEP_SUMMARY"
+
+      # Written by a run as root, so the upload step can read them
+      - name: Make the results readable
+        if: ${{ !cancelled() }}
+        run: sudo chown -R "$(id -u):$(id -g)" test-results || true
+
+      - name: Upload the test results
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: Test Results
+          path: test-results/*.xml
+
+  build-without-root:
+    name: Check the suite still runs unprivileged
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install the build and test dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            build-essential autoconf automake libtool \
+            libext2fs-dev comerr-dev libmagic-dev libblkid-dev uuid-dev \
+            zlib1g-dev libbz2-dev e2fsprogs
+
+      - name: Build ext4magic
+        run: |
+          ./configure
+          make
+
+      # Everything needing root has to skip rather than fail, and everything
+      # else has to still pass : a contributor without root has to be able to
+      # run the suite and read its result
+      - name: Run the test suite unprivileged
+        run: ./tests/run_tests.sh --summary "$GITHUB_STEP_SUMMARY"
+
+  publish-test-results:
+    name: Publish the test results
+    needs: [test]
+    runs-on: ubuntu-latest
+    # A pull request opened from a fork runs with a read-only token, so it
+    # cannot publish anything from here
+    if: >-
+      !cancelled() && (
+        github.event_name != 'pull_request' ||
+        github.event.pull_request.head.repo.full_name == github.repository
+      )
+    permissions:
+      checks: write
+      pull-requests: write
+      actions: read
+    steps:
+      - name: Download the test results
+        uses: actions/download-artifact@v4
+        with:
+          name: Test Results
+          path: test-results
+
+      - name: Publish the test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: test-results/**/*.xml
+          check_name: Test results
+          # Lists every test case in the check run, not only the failing ones,
+          # so the report says what was tested and not only what broke
+          check_run_annotations: all tests, skipped tests
+          check_run_annotations_branch: "*"
