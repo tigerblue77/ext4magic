@@ -685,7 +685,7 @@ errcode_t local_block_iterate3(ext2_filsys fs,
 						       (blk64_t) new_blk,
 						       uninit);
 					if (ctx.errcode)
-						goto extent_errout;
+						goto extent_done;
 				}
 				if (ret & BLOCK_ABORT)
 					break;
@@ -694,9 +694,14 @@ errcode_t local_block_iterate3(ext2_filsys fs,
 	if (bmap)
 		mark_extent_block(fs, (char*) inode.i_block);
 
-	extent_errout:
+	/* The extent loop above falls through to here on normal completion,
+	 * exactly as libext2fs's own ext2fs_block_iterate3() does. This is
+	 * not an error-only path: ret |= BLOCK_ERROR is what makes the
+	 * function return ctx.errcode, which is 0 after a successful walk
+	 * and the real error code after a failed one. */
+	extent_done:
 		local_ext2fs_extent_free(handle);
-		ret |= BLOCK_ERROR | BLOCK_ABORT;
+		ret |= BLOCK_ERROR;	/* ctx.errcode is always valid here */
 		goto errout;
 	}
 
