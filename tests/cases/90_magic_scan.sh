@@ -10,27 +10,21 @@
 # is fair to hold it to : the passes it runs, where it puts what it finds, what
 # it names it, and that it comes back.
 
-# Write a file of a recognisable type into a mounted image, delete it, and
-# leave $MARK holding a time just before the deletion
-# Usage : carve_setup "$IMAGE" && ...
-function a_deleted_file_of_a_recognisable_type() {
+# Builder for the two carving test cases : the file named by $CARVED_FILE,
+# written into the image as "carved/plain.txt" and then deleted
+function build_a_deleted_carvable_file() {
   local -r IMAGE="$1"
-  local -r LOCAL_FILE="$2"
-  local -r NAME_IN_THE_IMAGE="$3"
   local MOUNT_POINT
 
   MOUNT_POINT="$(mount_image "$IMAGE")" || return 1
   mkdir -p "$MOUNT_POINT/carved"
-  cp "$LOCAL_FILE" "$MOUNT_POINT/carved/$NAME_IN_THE_IMAGE"
+  cp "$CARVED_FILE" "$MOUNT_POINT/carved/plain.txt"
 
   close_the_transaction_and_mark "$IMAGE" || return 1
-  MOUNT_POINT="$REMOUNTED_AT"
-  MARK="$DELETION_MARK_TIME"
 
-  rm -f "$MOUNT_POINT/carved/$NAME_IN_THE_IMAGE"
+  rm -f "$REMOUNTED_AT/carved/plain.txt"
   sync
   unmount_image "$IMAGE"
-  return 0
 }
 
 
@@ -106,10 +100,9 @@ function test_what_the_second_pass_carves_is_filed_under_the_type_it_recognised(
   local MARK
 
   make_local_file "$ORIGINAL" 30000 41
-  a_deleted_file_of_a_recognisable_type "$IMAGE" "$ORIGINAL" "plain.txt" || {
-    fail "the image could not be filled and emptied"
-    return 1
-  }
+  CARVED_FILE="$ORIGINAL"
+  build_until_recoverable "$IMAGE" "$ORIGINAL" build_a_deleted_carvable_file || return 1
+  MARK="$DELETION_MARK_TIME"
 
   run_ext4magic -m -d "$TARGET" -a "$MARK" "$IMAGE" || true
 
@@ -137,10 +130,9 @@ function test_a_carved_text_file_is_recognised_as_text() {
   local MARK
 
   make_local_file "$ORIGINAL" 40000 42
-  a_deleted_file_of_a_recognisable_type "$IMAGE" "$ORIGINAL" "plain.txt" || {
-    fail "the image could not be filled and emptied"
-    return 1
-  }
+  CARVED_FILE="$ORIGINAL"
+  build_until_recoverable "$IMAGE" "$ORIGINAL" build_a_deleted_carvable_file || return 1
+  MARK="$DELETION_MARK_TIME"
 
   run_ext4magic -m -d "$TARGET" -a "$MARK" "$IMAGE" || true
 

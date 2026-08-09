@@ -222,11 +222,12 @@ function mount_image() {
   local -r MOUNT_POINT="$IMAGE.mountpoint"
 
   mkdir -p "$MOUNT_POINT"
-  # commit=1 makes the journal commit every second instead of every five, which
-  # is what lets close_the_transaction_and_mark() put the writes and the
-  # deletions into transactions of their own by waiting rather than by
-  # unmounting -- see the comment there for why unmounting is the wrong tool
-  if ! mount -o loop,commit=1 "$IMAGE" "$MOUNT_POINT" 2> "$IMAGE.mount.log"; then
+  # Mounted with the filesystem's own commit interval, deliberately. Shortening
+  # it with "commit=1" was measured to make the recovery fixtures LESS reliable,
+  # not more : every interval that elapses is another transaction, and the more
+  # of them there are the sooner the journal is checkpointed and the copy the
+  # recovery needs is free to be overwritten. See close_the_transaction_and_mark()
+  if ! mount -o loop "$IMAGE" "$MOUNT_POINT" 2> "$IMAGE.mount.log"; then
     return 1
   fi
   printf '%s' "$MOUNT_POINT"
@@ -271,12 +272,7 @@ function unmount_image() {
 function close_the_transaction_and_mark() {
   local -r IMAGE="$1"
 
-  # "sync -f" is syncfs() on this filesystem alone. A bare "sync" waits on every
-  # filesystem the machine has, which on a busy one is both slower and less
-  # precise about the only one that matters here
-  sync -f "$IMAGE.mountpoint" 2> /dev/null || sync
-  # Three commit intervals, so that the transaction holding the writes is
-  # closed and a new one has been opened for whatever comes next
+  sync
   sleep 3
   # A whole second either side of the mark, the inode timestamps ext4magic
   # compares having a one second resolution
@@ -302,8 +298,11 @@ function close_the_transaction_and_mark() {
 #   DELETION_MARK_TIME    an epoch second strictly between the last write and
 #                         the first deletion, which is what the -a option takes
 #
+# The fixture is built until it holds what it is for, up to three times -- see
+# populate_and_delete() below, which wraps this and explains why
+#
 # Usage : require_loop_mount || return 0 ; IMAGE=$(make_image) ; populate_and_delete "$IMAGE"
-function populate_and_delete() {
+function build_the_deleted_tree_once() {
   local -r IMAGE="$1"
 
   local MOUNT_POINT
@@ -337,6 +336,163 @@ function populate_and_delete() {
   unmount_image "$IMAGE"
 
   export ORIGINALS_DIRECTORY DELETION_MARK_TIME
+}
+
+# Whether the journal kept what the fixture is for : a copy of an inode from
+# before its file was deleted, AND the copy of the directory block that gives it
+# back its name. Answered by recovering into a throwaway directory and looking
+# for one known file under its own path, and asserting nothing.
+#
+# The path matters, not only the content : the test cases built on this fixture
+# assert where a recovered file lands, and a run that carved the right bytes out
+# under an invented name has not given them anything to assert on
+function the_journal_kept_a_copy_from_before_the_deletion() {
+  local -r IMAGE="$1"
+  local -r PROBE_DIRECTORY="$IMAGE.precondition_probe"
+  local -r CANONICAL_PATH="documents/notes.txt"
+
+  rm -rf "$PROBE_DIRECTORY"
+  mkdir -p "$PROBE_DIRECTORY"
+  "$(ext4magic_binary)" -M -d "$PROBE_DIRECTORY" -a "$DELETION_MARK_TIME" "$IMAGE" \
+    > /dev/null 2>&1 || true
+
+  local FOUND=1
+  if [ -f "$PROBE_DIRECTORY/$CANONICAL_PATH" ] &&
+    cmp -s "$ORIGINALS_DIRECTORY/$CANONICAL_PATH" "$PROBE_DIRECTORY/$CANONICAL_PATH"; then
+    FOUND=0
+  fi
+  rm -rf "$PROBE_DIRECTORY"
+  return "$FOUND"
+}
+
+# The tree every recovery test case starts from, built until it holds what it is
+# for.
+#
+# Whether the journal still carries a copy of an inode from before its file was
+# deleted is not something a fixture can command. jbd2 decides when to
+# checkpoint, and once it has, the space holding that copy is free to be
+# reused. Everything that can be done from outside is done -- the writes are
+# committed by a sync and separated from the deletions by an idle gap at the
+# filesystem's own commit interval -- and it still does not hold every time.
+#
+# So the fixture checks itself, by recovering into a throwaway directory and
+# looking for one known file, and builds a fresh image when it did not hold.
+# That is setup, not the thing under test : what the test cases assert is what
+# the recovery PRODUCES, and none of them can say anything about that from an
+# image whose journal has nothing in it.
+#
+# Three attempts, and then a failure rather than a skip. One miss is jbd2
+# checkpointing early ; three independent images all coming up empty is
+# ext4magic no longer recovering anything, which is the one thing this fixture
+# must not be able to hide
+function populate_and_delete() {
+  local -r IMAGE="$1"
+  local -r TYPE="$(filesystem_type_of "$IMAGE")"
+  local ATTEMPT
+
+  # On a filesystem with extents there is nothing to wait for : a recovery comes
+  # back with nothing whatever the journal kept, which is what issue #15 is
+  # about and what two test cases in cases/80_listing_and_recovery.sh record.
+  # Checking the precondition there would retry three times and then report a
+  # failure for something already reported
+  if [ "$TYPE" == "ext4" ]; then
+    build_the_deleted_tree_once "$IMAGE"
+    return $?
+  fi
+
+  for ATTEMPT in 1 2 3; do
+    build_the_deleted_tree_once "$IMAGE" || return 1
+    if the_journal_kept_a_copy_from_before_the_deletion "$IMAGE"; then
+      return 0
+    fi
+    # A fresh filesystem, so that the next attempt is independent of this one.
+    # The block and inode sizes are kept : several test cases vary them, and a
+    # rebuild that reset them would quietly test something else
+    mke2fs -q -F -t "$TYPE" -U "$FIXED_FILESYSTEM_UUID" -E root_owner=0:0 \
+      -b "$(block_size_of "$IMAGE")" -I "$(inode_size_of "$IMAGE")" \
+      "$IMAGE" > /dev/null 2>&1 || return 1
+  done
+
+  fail "the journal kept no copy from before the deletion, in three images running" \
+    "each was written, synced, left idle and then emptied" \
+    "three in a row means the recovery found nothing, not that one image was unlucky"
+  return 1
+}
+
+# Build a fixture with the given function, until the journal has kept what the
+# fixture is for.
+#
+# Same reasoning as populate_and_delete(), for the test cases that write their
+# own tree rather than the shared one : jbd2 decides when to checkpoint, and
+# once it has, the copy of the inode from before the deletion is free to be
+# overwritten. Nothing outside the filesystem can command that, so the fixture
+# checks itself and builds a fresh image when it did not hold.
+#
+# The builder is a function taking the image's path. It is called with a freshly
+# made filesystem each time, and has to leave $DELETION_MARK_TIME behind, which
+# close_the_transaction_and_mark() does.
+#
+# Three attempts, then a failure rather than a skip : one miss is jbd2
+# checkpointing early, three independent images all coming up empty is the
+# recovery no longer working, which this must not be able to hide
+#
+# Usage : build_until_recoverable "$IMAGE" "$ORIGINAL_FILE" a_builder_function || return 1
+function build_until_recoverable() {
+  local -r IMAGE="$1"
+  local -r ORIGINAL="$2"
+  local -r BUILDER="$3"
+  local -r TYPE="$(filesystem_type_of "$IMAGE")"
+  local -r BLOCK_SIZE="$(block_size_of "$IMAGE")"
+  local -r INODE_SIZE="$(inode_size_of "$IMAGE")"
+  local ATTEMPT
+
+  for ATTEMPT in 1 2 3; do
+    "$BUILDER" "$IMAGE" || return 1
+
+    local PROBE_DIRECTORY="$IMAGE.precondition_probe"
+    rm -rf "$PROBE_DIRECTORY"
+    mkdir -p "$PROBE_DIRECTORY"
+    "$(ext4magic_binary)" -M -d "$PROBE_DIRECTORY" -a "$DELETION_MARK_TIME" "$IMAGE" \
+      > /dev/null 2>&1 || true
+    if [ -n "$(recovered_file_matching "$PROBE_DIRECTORY" "$ORIGINAL")" ]; then
+      rm -rf "$PROBE_DIRECTORY"
+      return 0
+    fi
+    rm -rf "$PROBE_DIRECTORY"
+
+    mke2fs -q -F -t "$TYPE" -U "$FIXED_FILESYSTEM_UUID" -E root_owner=0:0 \
+      -b "$BLOCK_SIZE" -I "$INODE_SIZE" "$IMAGE" > /dev/null 2>&1 || return 1
+  done
+
+  fail "the journal kept no copy from before the deletion, in three images running" \
+    "the file looked for was: [$ORIGINAL]" \
+    "three in a row means the recovery found nothing, not that one image was unlucky"
+  return 1
+}
+
+# The block size of an existing image, so that a fixture rebuilding one keeps it
+function block_size_of() {
+  dumpe2fs -h "$1" 2> /dev/null | sed -n 's/^Block size:[[:space:]]*//p' | head -1
+}
+
+# The inode size of an existing image, for the same reason
+function inode_size_of() {
+  dumpe2fs -h "$1" 2> /dev/null | sed -n 's/^Inode size:[[:space:]]*//p' | head -1
+}
+
+# The type of an existing image, so that a fixture rebuilding one keeps it
+function filesystem_type_of() {
+  local -r IMAGE="$1"
+
+  if dumpe2fs -h "$IMAGE" 2> /dev/null | grep -q "has_journal"; then
+    if dumpe2fs -h "$IMAGE" 2> /dev/null | grep -q "extent"; then
+      printf 'ext4'
+    else
+      printf 'ext3'
+    fi
+  else
+    printf 'ext2'
+  fi
 }
 
 # A time window that certainly contains everything the image was built with,

@@ -474,6 +474,21 @@ function test_a_deleted_file_is_recovered_whatever_the_inode_size_of_the_filesys
   done
 }
 
+# Builder for the test case below : one file large enough to need a double
+# indirect block, written and deleted
+function build_a_deleted_large_file() {
+  local -r IMAGE="$1"
+  local MOUNT_POINT
+
+  MOUNT_POINT="$(mount_image "$IMAGE")" || return 1
+  mkdir -p "$MOUNT_POINT/big"
+  cp "$CASE_DIRECTORY/large.dat" "$MOUNT_POINT/big/large.dat"
+  close_the_transaction_and_mark "$IMAGE" || return 1
+  rm -f "$REMOUNTED_AT/big/large.dat"
+  sync
+  unmount_image "$IMAGE"
+}
+
 function test_the_recovery_of_a_file_larger_than_one_indirect_block_comes_back_whole() {
   require_root || return 0
   require_loop_mount || return 0
@@ -481,26 +496,11 @@ function test_the_recovery_of_a_file_larger_than_one_indirect_block_comes_back_w
   # after 268 kibibytes, which is the boundary get_dind_block_len() is about
   local -r IMAGE="$(make_image --type ext3 --size 96 --block-size 1024 --name recovery_large_file)"
   local -r ORIGINAL="$CASE_DIRECTORY/large.dat"
-  local MOUNT_POINT
   local -r TARGET="$(new_recovery_directory)"
 
   make_local_file "$ORIGINAL" 500000 7
-
-  MOUNT_POINT="$(mount_image "$IMAGE")" || {
-    fail "the image could not be mounted"
-    return 1
-  }
-  mkdir -p "$MOUNT_POINT/big"
-  cp "$ORIGINAL" "$MOUNT_POINT/big/large.dat"
-  close_the_transaction_and_mark "$IMAGE" || {
-    fail "the image could not be mounted again"
-    return 1
-  }
-  MOUNT_POINT="$REMOUNTED_AT"
+  build_until_recoverable "$IMAGE" "$ORIGINAL" build_a_deleted_large_file || return 1
   local -r MARK="$DELETION_MARK_TIME"
-  rm -f "$MOUNT_POINT/big/large.dat"
-  sync
-  unmount_image "$IMAGE"
 
   run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
 
@@ -513,12 +513,25 @@ function test_the_recovery_of_a_file_larger_than_one_indirect_block_comes_back_w
   fi
 }
 
+# Builder for the test case below : a small source tree, written and deleted
+# whole. It reads the tree $CASE_DIRECTORY/originals holds
+function build_a_deleted_project_tree() {
+  local -r IMAGE="$1"
+  local MOUNT_POINT
+
+  MOUNT_POINT="$(mount_image "$IMAGE")" || return 1
+  cp -r "$CASE_DIRECTORY/originals/project" "$MOUNT_POINT/"
+  close_the_transaction_and_mark "$IMAGE" || return 1
+  rm -rf "$REMOUNTED_AT/project"
+  sync
+  unmount_image "$IMAGE"
+}
+
 function test_a_deleted_directory_is_recovered_with_everything_that_was_in_it() {
   require_root || return 0
   require_loop_mount || return 0
   # A recursive delete is the case the magic recovery was written for
   local -r IMAGE="$(make_image --type ext3 --size 64 --name recovery_of_a_tree)"
-  local MOUNT_POINT
   local -r TARGET="$(new_recovery_directory)"
   local -r ORIGINALS="$CASE_DIRECTORY/originals"
 
@@ -527,20 +540,9 @@ function test_a_deleted_directory_is_recovered_with_everything_that_was_in_it() 
   make_local_file "$ORIGINALS/project/source/util.c" 12000 12
   make_local_file "$ORIGINALS/project/notes/todo.txt" 3000 13
 
-  MOUNT_POINT="$(mount_image "$IMAGE")" || {
-    fail "the image could not be mounted"
-    return 1
-  }
-  cp -r "$ORIGINALS/project" "$MOUNT_POINT/"
-  close_the_transaction_and_mark "$IMAGE" || {
-    fail "the image could not be mounted again"
-    return 1
-  }
-  MOUNT_POINT="$REMOUNTED_AT"
+  build_until_recoverable "$IMAGE" "$ORIGINALS/project/source/main.c" \
+    build_a_deleted_project_tree || return 1
   local -r MARK="$DELETION_MARK_TIME"
-  rm -rf "$MOUNT_POINT/project"
-  sync
-  unmount_image "$IMAGE"
 
   run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
 
@@ -556,32 +558,35 @@ function test_a_deleted_directory_is_recovered_with_everything_that_was_in_it() 
   done
 }
 
+# Builder for the test case below : one file with a mode and an owner of its
+# own, written and deleted
+function build_a_deleted_file_with_attributes() {
+  local -r IMAGE="$1"
+  local MOUNT_POINT
+
+  MOUNT_POINT="$(mount_image "$IMAGE")" || return 1
+  mkdir -p "$MOUNT_POINT/attributes"
+  cp "$CASE_DIRECTORY/private.txt" "$MOUNT_POINT/attributes/private.txt"
+  chmod 600 "$MOUNT_POINT/attributes/private.txt"
+  chown 1234:5678 "$MOUNT_POINT/attributes/private.txt"
+  close_the_transaction_and_mark "$IMAGE" || return 1
+  rm -f "$REMOUNTED_AT/attributes/private.txt"
+  sync
+  unmount_image "$IMAGE"
+}
+
 function test_a_recovered_file_keeps_the_mode_and_the_owner_it_had() {
   require_root || return 0
   require_loop_mount || return 0
   # The inode copy carries them, and a recovery that dropped them would hand
   # back a tree nobody can put back where it came from
   local -r IMAGE="$(make_image --type ext3 --size 64 --name recovery_of_attributes)"
-  local MOUNT_POINT
   local -r TARGET="$(new_recovery_directory)"
 
-  MOUNT_POINT="$(mount_image "$IMAGE")" || {
-    fail "the image could not be mounted"
-    return 1
-  }
-  mkdir -p "$MOUNT_POINT/attributes"
-  make_local_file "$MOUNT_POINT/attributes/private.txt" 2000 21
-  chmod 600 "$MOUNT_POINT/attributes/private.txt"
-  chown 1234:5678 "$MOUNT_POINT/attributes/private.txt"
-  close_the_transaction_and_mark "$IMAGE" || {
-    fail "the image could not be mounted again"
-    return 1
-  }
-  MOUNT_POINT="$REMOUNTED_AT"
+  make_local_file "$CASE_DIRECTORY/private.txt" 2000 21
+  build_until_recoverable "$IMAGE" "$CASE_DIRECTORY/private.txt" \
+    build_a_deleted_file_with_attributes || return 1
   local -r MARK="$DELETION_MARK_TIME"
-  rm -f "$MOUNT_POINT/attributes/private.txt"
-  sync
-  unmount_image "$IMAGE"
 
   run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
 
@@ -597,42 +602,51 @@ function test_a_recovered_file_keeps_the_mode_and_the_owner_it_had() {
   assert_equals "5678" "$(stat -c '%g' "$TARGET/attributes/private.txt")" "and the group"
 }
 
+# The names the test case below writes and deletes
+readonly AWKWARD_NAMES=("a report with spaces.txt" "quoted\"name.txt" "été-accentué.txt" "-leading-dash.txt")
+
+# Builder for the test case below
+function build_deleted_files_with_awkward_names() {
+  local -r IMAGE="$1"
+  local MOUNT_POINT NAME INDEX
+
+  MOUNT_POINT="$(mount_image "$IMAGE")" || return 1
+  mkdir -p "$MOUNT_POINT/awkward"
+  INDEX=0
+  for NAME in "${AWKWARD_NAMES[@]}"; do
+    cp "$CASE_DIRECTORY/awkward_$INDEX" "$MOUNT_POINT/awkward/$NAME"
+    INDEX=$((INDEX + 1))
+  done
+  close_the_transaction_and_mark "$IMAGE" || return 1
+  for NAME in "${AWKWARD_NAMES[@]}"; do
+    rm -f "$REMOUNTED_AT/awkward/$NAME"
+  done
+  sync
+  unmount_image "$IMAGE"
+}
+
 function test_a_name_with_spaces_or_bytes_that_are_not_text_survives_the_recovery() {
   require_root || return 0
   require_loop_mount || return 0
   # An ext4 name is a byte string, and the recovery writes it back out as a file
   # name. Anything lost on the way is a file recovered under the wrong name
   local -r IMAGE="$(make_image --type ext3 --size 64 --name recovery_of_awkward_names)"
-  local MOUNT_POINT
   local -r TARGET="$(new_recovery_directory)"
-  local -r NAMES=("a report with spaces.txt" "quoted\"name.txt" "été-accentué.txt" "-leading-dash.txt")
-  local NAME
+  local NAME INDEX
 
-  MOUNT_POINT="$(mount_image "$IMAGE")" || {
-    fail "the image could not be mounted"
-    return 1
-  }
-  mkdir -p "$MOUNT_POINT/awkward"
-  local INDEX=0
-  for NAME in "${NAMES[@]}"; do
-    make_local_file "$MOUNT_POINT/awkward/$NAME" $((2000 + INDEX * 100)) "$((30 + INDEX))"
+  INDEX=0
+  for NAME in "${AWKWARD_NAMES[@]}"; do
+    make_local_file "$CASE_DIRECTORY/awkward_$INDEX" $((2000 + INDEX * 100)) "$((30 + INDEX))"
     INDEX=$((INDEX + 1))
   done
-  close_the_transaction_and_mark "$IMAGE" || {
-    fail "the image could not be mounted again"
-    return 1
-  }
-  MOUNT_POINT="$REMOUNTED_AT"
+
+  build_until_recoverable "$IMAGE" "$CASE_DIRECTORY/awkward_0" \
+    build_deleted_files_with_awkward_names || return 1
   local -r MARK="$DELETION_MARK_TIME"
-  for NAME in "${NAMES[@]}"; do
-    rm -f "$MOUNT_POINT/awkward/$NAME"
-  done
-  sync
-  unmount_image "$IMAGE"
 
   run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
 
-  for NAME in "${NAMES[@]}"; do
+  for NAME in "${AWKWARD_NAMES[@]}"; do
     assert_file_exists "$TARGET/awkward/$NAME" "\"$NAME\" came back under its own name"
   done
 }
