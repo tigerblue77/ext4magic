@@ -630,7 +630,7 @@ errcode_t local_block_iterate3(ext2_filsys fs,
 						0, 0, priv_data);
 				ret |= r;
 				check_for_ro_violation_goto(&ctx, ret,
-							    extent_errout);
+							    extent_done);
 				if (r & BLOCK_CHANGED) {
 					ctx.errcode =
 						ext2fs_extent_set_bmap(handle,
@@ -677,7 +677,7 @@ errcode_t local_block_iterate3(ext2_filsys fs,
 						0, 0, priv_data);
 				ret |= r;
 				check_for_ro_violation_goto(&ctx, ret,
-							    extent_errout);
+							    extent_done);
 				if (r & BLOCK_CHANGED) {
 					ctx.errcode =
 						ext2fs_extent_set_bmap(handle,
