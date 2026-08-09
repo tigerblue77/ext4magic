@@ -856,7 +856,7 @@ int init_journal(void)
 	pt = pt_buff ;
 	pt_count = 0;
 	if (pt_buff == NULL) {
-		fprintf(stderr,"Error: can't allocate %u Memory\n",maxlen * sizeof(journal_descriptor_tag_t));
+		fprintf(stderr,"Error: can't allocate %zu Memory\n",maxlen * sizeof(journal_descriptor_tag_t));
 		goto errout;
 	}
 	ptl = (__u32*)(pt_buff + (maxlen * sizeof(journal_descriptor_tag_t)));
