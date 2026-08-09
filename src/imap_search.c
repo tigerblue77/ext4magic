@@ -126,6 +126,7 @@ static magic_t 		cookie = 0;
 char* identify_filename(char* i_pathname, unsigned char *tmp_buf, struct ext2_inode* inode, blk_t inode_nr){
 	struct privat 	priv ;
 	char 		magic_buf[100];
+	const char	*magic_str;
 	int		retval= 0;
 	
 	priv.count = priv.error = priv.flag = 0;
@@ -136,8 +137,12 @@ char* identify_filename(char* i_pathname, unsigned char *tmp_buf, struct ext2_in
 		// iterate first 12 Data Blocks
 		retval = local_block_iterate3 ( current_fs, *inode, BLOCK_FLAG_DATA_ONLY, NULL, first_blocks, &priv );
 		if (priv.count <12){
-			strncpy(magic_buf, magic_buffer(cookie , tmp_buf,
-				((inode->i_size < 12 * current_fs->blocksize) ?  inode->i_size : (12 * current_fs->blocksize))), 60);
+			magic_str = magic_buffer(cookie , tmp_buf,
+				((inode->i_size < 12 * current_fs->blocksize) ?  inode->i_size : (12 * current_fs->blocksize)));
+			//magic_buffer() returns NULL if libmagic can not identify the buffer (see magic(3)),
+			//a NULL source would let strncpy() crash. Then we use the answer libmagic
+			//itself returns for content it can not identify.
+			strncpy(magic_buf, (magic_str) ? magic_str : "application/octet-stream; charset=binary", 60);
 			i_pathname = get_pathname(inode_nr, i_pathname, magic_buf, tmp_buf);
 		}
 	}
