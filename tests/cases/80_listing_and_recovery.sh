@@ -550,16 +550,36 @@ function build_a_deleted_file_with_attributes() {
   unmount_image "$IMAGE"
 }
 
+# The recovery has to have come back with the attributes, not only the bytes :
+# ext4magic recovers from the oldest inode copy the journal kept, and if the
+# commit timer fired between creating the file and setting its mode that copy
+# predates the chmod
+function the_recovered_file_kept_its_attributes() {
+  local -r RECOVERY="$1"
+  local -r FILE="$RECOVERY/attributes/private.txt"
+
+  [ "$(stat -c '%a' "$FILE" 2> /dev/null)" == "600" ] &&
+    [ "$(stat -c '%u' "$FILE" 2> /dev/null)" == "1234" ] &&
+    [ "$(stat -c '%g' "$FILE" 2> /dev/null)" == "5678" ]
+}
+
 function test_a_recovered_file_keeps_the_mode_and_the_owner_it_had() {
   require_root || return 0
   require_loop_mount || return 0
   # The inode copy carries them, and a recovery that dropped them would hand
-  # back a tree nobody can put back where it came from
+  # back a tree nobody can put back where it came from.
+  #
+  # The fixture waits for the attributes as well as for the bytes, which looks
+  # like it would make the assertions below unable to fail. It does not : a
+  # recovery that stopped restoring them would never satisfy the fixture either,
+  # and the run would end on its "three images running" failure instead. Checked
+  # by deleting the chown from recover.c, which turns this test case red
   local -r IMAGE="$(make_image --type ext3 --size 64 --name recovery_of_attributes)"
 
   make_local_file "$CASE_DIRECTORY/private.txt" 2000 21
   build_until_recoverable "$IMAGE" "$CASE_DIRECTORY/private.txt" \
-    build_a_deleted_file_with_attributes "attributes/private.txt" || return 1
+    build_a_deleted_file_with_attributes "attributes/private.txt" \
+    the_recovered_file_kept_its_attributes || return 1
   local -r TARGET="$RECOVERED_DIRECTORY"
 
   if [ ! -f "$TARGET/attributes/private.txt" ]; then

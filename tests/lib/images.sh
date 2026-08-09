@@ -467,14 +467,24 @@ function populate_and_delete() {
 # the recovery, rather than merely somewhere in it under whatever name the scan
 # chose. Give it whenever the test case asserts on a path, so that the fixture
 # waits for the same thing the assertions do -- a build whose bytes came back
-# under an invented "MAGIC-2/..." name has not given those assertions anything
+# under an invented "MAGIC-2/..." name has not given those assertions anything.
 #
-# Usage : build_until_recoverable "$IMAGE" "$ORIGINAL_FILE" a_builder [path/in/the/recovery]
+# A fifth asks for more than the bytes : the name of a function taking the
+# recovery directory and returning 0 when it holds what the test case is about.
+# One test case asserts on the recovered file's mode and owner, and ext4magic
+# recovers from the OLDEST inode copy the journal kept -- which, if the commit
+# timer happened to fire between creating the file and setting its mode, is the
+# copy from before the chmod. The bytes are right and the mode is not. The
+# fixture has to wait for that too, or the test case is asserting on something
+# the image never held
+#
+# Usage : build_until_recoverable "$IMAGE" "$ORIGINAL" a_builder [path] [a_verifier]
 function build_until_recoverable() {
   local -r IMAGE="$1"
   local -r ORIGINAL="$2"
   local -r BUILDER="$3"
   local -r EXPECTED_PATH="${4:-}"
+  local -r VERIFIER="${5:-}"
   local -r TYPE="$(filesystem_type_of "$IMAGE")"
   local -r BLOCK_SIZE="$(block_size_of "$IMAGE")"
   local -r INODE_SIZE="$(inode_size_of "$IMAGE")"
@@ -491,7 +501,8 @@ function build_until_recoverable() {
       > /dev/null 2>&1 || true
     if [ -n "$EXPECTED_PATH" ]; then
       if [ -f "$RECOVERED_DIRECTORY/$EXPECTED_PATH" ] &&
-        cmp -s "$ORIGINAL" "$RECOVERED_DIRECTORY/$EXPECTED_PATH"; then
+        cmp -s "$ORIGINAL" "$RECOVERED_DIRECTORY/$EXPECTED_PATH" &&
+        { [ -z "$VERIFIER" ] || "$VERIFIER" "$RECOVERED_DIRECTORY"; }; then
         return 0
       fi
     elif [ -n "$(recovered_file_matching "$RECOVERED_DIRECTORY" "$ORIGINAL")" ]; then
@@ -502,9 +513,10 @@ function build_until_recoverable() {
       -b "$BLOCK_SIZE" -I "$INODE_SIZE" "$IMAGE" > /dev/null 2>&1 || return 1
   done
 
-  fail "the journal kept no copy from before the deletion, in three images running" \
+  fail "three images running did not produce what this test case needs" \
     "the file looked for was: [$ORIGINAL]${EXPECTED_PATH:+, under [$EXPECTED_PATH]}" \
-    "three in a row means the recovery found nothing, not that one image was unlucky"
+    "${VERIFIER:+it also had to satisfy [$VERIFIER], which is where to look first}" \
+    "one miss is the journal checkpointing early ; three in a row is the recovery no longer doing this"
   return 1
 }
 
