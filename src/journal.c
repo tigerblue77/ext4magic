@@ -713,20 +713,46 @@ int get_block_list(journal_descriptor_tag_t *pointer, blk64_t block , int counte
 }
 
 
+//size of one tag in a descriptor block, see journal_tag_bytes() in
+//e2fsprogs lib/ext2fs/kernel-jbd.h. jsb is already in cpu byte order.
+static int journal_tag_size(journal_superblock_t *jsb)
+{
+	int	size;
+
+	if (jsb->s_feature_incompat & JFS_FEATURE_INCOMPAT_CSUM_V3)
+		return sizeof(journal_block_tag3_t);
+
+	size = sizeof(journal_block_tag_t);
+
+	if (jsb->s_feature_incompat & JFS_FEATURE_INCOMPAT_CSUM_V2)
+		size += sizeof(__u16);
+
+	if (jsb->s_feature_incompat & JFS_FEATURE_INCOMPAT_64BIT)
+		return size;
+
+	return size - sizeof(__u32);
+}
+
+
 //extract the journal in the local intern blocklist
 static void extract_descriptor_block(char *buf, journal_superblock_t *jsb,
 				  unsigned int *blockp, int blocksize,
 				  tid_t transaction, unsigned int *wrapflag )
 {
-	int			offset, tag_size = JBD_TAG_SIZE32;
+	int			offset, tag_size, csum_size = 0;
 	char			*tagp;
 	journal_block_tag_t	*tag;
 	unsigned int		blocknr;
 	__u32			tag_block;
 	__u32			tag_flags;
 
-	if (jsb->s_feature_incompat & JFS_FEATURE_INCOMPAT_64BIT)
-		tag_size = JBD_TAG_SIZE64;
+	tag_size = journal_tag_size(jsb);
+
+	//a checksumming journal keeps a jbd2_journal_block_tail at the end
+	//of the descriptor block, no tag may reach into it
+	if (jsb->s_feature_incompat & (JFS_FEATURE_INCOMPAT_CSUM_V2 |
+				       JFS_FEATURE_INCOMPAT_CSUM_V3))
+		csum_size = sizeof(struct jbd2_journal_block_tail);
 
 	offset = sizeof(journal_header_t);
 	blocknr = *blockp;
@@ -754,10 +780,10 @@ static void extract_descriptor_block(char *buf, journal_superblock_t *jsb,
 
 		/* ... and if we have gone too far, then we've reached the
 		   end of this block. */
-		if (offset > blocksize) break;
+		if (offset > blocksize - csum_size) break;
 
 		tag_block = ext2fs_be32_to_cpu(tag->t_blocknr) ;
-		tag_flags = ext2fs_be32_to_cpu(tag->t_flags);
+		tag_flags = ext2fs_be16_to_cpu(tag->t_flags);
 
 		if (!(tag_flags & JFS_FLAG_SAME_UUID))
 			offset += 16;
@@ -769,7 +795,8 @@ static void extract_descriptor_block(char *buf, journal_superblock_t *jsb,
 		fprintf(stdout,"*");
 #endif
 		pt->f_blocknr = tag_block ;
-		if (tag_size > JBD_TAG_SIZE32) pt->f_blocknr |= (__u64)ext2fs_be32_to_cpu(tag->t_blocknr_high) << 32;
+		if (jsb->s_feature_incompat & JFS_FEATURE_INCOMPAT_64BIT)
+			pt->f_blocknr |= (__u64)ext2fs_be32_to_cpu(tag->t_blocknr_high) << 32;
 		pt->j_blocknr = blocknr;
 		pt->transaction = transaction;
 		pt++;

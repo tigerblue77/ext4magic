@@ -135,13 +135,35 @@ struct commit_header {
 
 /*
  * The block tag: used to describe a single buffer in the journal
+ *
+ * JBD2_FEATURE_INCOMPAT_CSUM_V3 uses journal_block_tag3_t, every other
+ * journal uses journal_block_tag_t.  Note that the pre-checksum layout
+ * had a 32 bit t_flags where this one has a 16 bit t_checksum followed
+ * by a 16 bit t_flags; because the tag is big endian and no flag value
+ * exceeds 0xff, the flags occupy the very same byte in both layouts, so
+ * reading t_flags as a 16 bit big endian value is correct for all
+ * journals.
  */
-typedef struct journal_block_tag_s
+typedef struct journal_block_tag3_s
 {
 	__u32		t_blocknr;	/* The on-disk block number */
 	__u32		t_flags;	/* See below */
 	__u32		t_blocknr_high; /* most-significant high 32bits. */
+	__u32		t_checksum;	/* crc32c(uuid+seq+block) */
+} journal_block_tag3_t;
+
+typedef struct journal_block_tag_s
+{
+	__u32		t_blocknr;	/* The on-disk block number */
+	__u16		t_checksum;	/* truncated crc32c(uuid+seq+block) */
+	__u16		t_flags;	/* See below */
+	__u32		t_blocknr_high; /* most-significant high 32bits. */
 } journal_block_tag_t;
+
+/* Tail of descriptor or revoke block, present with CSUM_V2 or CSUM_V3 */
+struct jbd2_journal_block_tail {
+	__u32		t_checksum;	/* crc32c(uuid+descr_block) */
+};
 
 #define JBD_TAG_SIZE64 (sizeof(journal_block_tag_t))
 #define JBD_TAG_SIZE32 (8)
@@ -229,6 +251,8 @@ typedef struct journal_superblock_s
 #define JFS_FEATURE_INCOMPAT_REVOKE		0x00000001
 #define JFS_FEATURE_INCOMPAT_64BIT		0x00000002
 #define JFS_FEATURE_INCOMPAT_ASYNC_COMMIT	0x00000004
+#define JFS_FEATURE_INCOMPAT_CSUM_V2		0x00000008
+#define JFS_FEATURE_INCOMPAT_CSUM_V3		0x00000010
 
 /* Features known to this kernel version: */
 #define JFS_KNOWN_COMPAT_FEATURES	0
