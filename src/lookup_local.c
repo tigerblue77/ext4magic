@@ -457,7 +457,7 @@ static errcode_t local_dir_iterate3(ext2_filsys fs,
         ctx.func = func;
         ctx.priv_data = priv_data;
         ctx.errcode = 0;
-        retval = local_block_iterate3(fs, *inode, BLOCK_FLAG_READ_ONLY, 0,
+        retval = local_block_iterate3(fs, dir, *inode, BLOCK_FLAG_READ_ONLY, 0,
                                        local_process_dir_block, &ctx);
         if (!block_buf)
                 ext2fs_free_mem(&ctx.buf);
@@ -638,7 +638,7 @@ void lookup_local(char* des_dir, struct dir_list_head_t * dir, __u32 t_after , _
 								lp->filename,c);
 							break;
 						case LIST_STATUS :
-							allocated = check_file_recover(inode);
+							allocated = check_file_recover(inode, lp->inode_nr);
 							if (allocated)
 							printf("%5u%%	%c%s%s%s%c\n",allocated,c,dir->pathname,
 								((strlen(dir->pathname) > 0) && strcmp(dir->pathname,"/")) ? "/" : "",

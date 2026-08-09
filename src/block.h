@@ -6,6 +6,7 @@
 
 
 errcode_t local_block_iterate3(ext2_filsys fs,
+				ext2_ino_t ino,
 				struct ext2_inode inode,
 				int	flags,
 				char *block_buf,

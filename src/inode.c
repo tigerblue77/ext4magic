@@ -102,7 +102,8 @@ static void dump_xattr_string(FILE *out, const char *str, int len)
 
 
 //print Blocks of inode (ext4)
-static void local_dump_extents(FILE *f, const char *prefix, struct ext2_inode * inode,
+static void local_dump_extents(FILE *f, const char *prefix, ext2_ino_t inode_num,
+                         struct ext2_inode * inode,
                          int flags, int logical_width, int physical_width)
 {
         ext2_extent_handle_t    handle;
@@ -113,7 +114,13 @@ static void local_dump_extents(FILE *f, const char *prefix, struct ext2_inode * 
         errcode_t               errcode;
 
 	
-        errcode = ext2fs_extent_open2(current_fs, 0, inode, &handle);
+        /*
+         * "inode_num" is only used as part of the extent block checksum
+         * seed; it must be the real inode number or every descent below
+         * the root node fails with EXT2_ET_EXTENT_CSUM_INVALID on a
+         * metadata_csum filesystem.
+         */
+        errcode = ext2fs_extent_open2(current_fs, inode_num, inode, &handle);
         if (errcode)
                 return;
 
@@ -326,7 +333,8 @@ static int list_blocks_proc(ext2_filsys fs EXT2FS_ATTR((unused)),
 
 
 // print the  Datablocks from Inode (ext3)
-static void dump_blocks(FILE *f, const char *prefix, struct ext2_inode *inode)
+static void dump_blocks(FILE *f, const char *prefix, ext2_ino_t inode_num,
+                        struct ext2_inode *inode)
 {
         struct list_blocks_struct lb;
 
@@ -336,7 +344,7 @@ static void dump_blocks(FILE *f, const char *prefix, struct ext2_inode *inode)
         lb.f = f;
         lb.first = 1;
        // ext2fs_block_iterate2(current_fs, inode, BLOCK_FLAG_READ_ONLY, NULL,
-	local_block_iterate3(current_fs, *inode, BLOCK_FLAG_READ_ONLY, NULL,
+	local_block_iterate3(current_fs, inode_num, *inode, BLOCK_FLAG_READ_ONLY, NULL,
                              list_blocks_proc, (void *)&lb);
         finish_range(&lb);
         if (lb.total)
@@ -479,10 +487,10 @@ void dump_inode(FILE *out, const char *prefix,
                         devnote, major, minor, major, minor);
         } else if (do_dump_blocks && !(inode->i_dtime)) {
                 if (inode->i_flags & EXT4_EXTENTS_FL)
-                        local_dump_extents(out, prefix, inode,
+                        local_dump_extents(out, prefix, inode_num, inode,
                                      DUMP_LEAF_EXTENTS | DUMP_EXTENT_TABLE, 11, 11);
                 else
-                        dump_blocks(out, prefix, inode);
+                        dump_blocks(out, prefix, inode_num, inode);
         }
 }
 

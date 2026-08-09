@@ -432,7 +432,8 @@ static int block_iterate_tind(blk_t *tind_block, blk_t ref_block,
 
 
 errcode_t local_block_iterate3(ext2_filsys fs,
-				struct ext2_inode inode, // ext2_ino_t ino,
+				ext2_ino_t ino,
+				struct ext2_inode inode,
 				int	flags,
 				char *block_buf,
 				int (*func)(ext2_filsys fs,
@@ -510,7 +511,13 @@ errcode_t local_block_iterate3(ext2_filsys fs,
 		int			uninit;
 		unsigned int		j;
 
-		ctx.errcode = ext2fs_extent_open2(fs, 0, &inode, &handle);
+		/*
+		 * "ino" is only used as part of the extent block checksum
+		 * seed; it must be the real inode number or every descent
+		 * below the root node fails with EXT2_ET_EXTENT_CSUM_INVALID
+		 * on a metadata_csum filesystem.
+		 */
+		ctx.errcode = ext2fs_extent_open2(fs, ino, &inode, &handle);
 		if (ctx.errcode)
 			goto abort_exit;
 

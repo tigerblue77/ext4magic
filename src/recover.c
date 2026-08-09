@@ -394,7 +394,7 @@ int recover_file( char* des_dir,char* pathname, char* filename, struct ext2_inod
 				priv.buf = buf;
 				priv.error = 0;
 				// iterate Data Blocks and if not allocated, write to file
-				retval = local_block_iterate3 ( current_fs, *inode, BLOCK_FLAG_DATA_ONLY, NULL, write_block, &priv );
+				retval = local_block_iterate3 ( current_fs, inode_nr, *inode, BLOCK_FLAG_DATA_ONLY, NULL, write_block, &priv );
 #ifdef DEBUG
 				printf("\n");
 #endif
@@ -432,7 +432,7 @@ int recover_file( char* des_dir,char* pathname, char* filename, struct ext2_inod
 					priv.buf = buf;
 					priv.error = 0;
 					
-					retval = local_block_iterate3 ( current_fs, *inode, BLOCK_FLAG_DATA_ONLY, NULL, read_syslink_block, &priv );
+					retval = local_block_iterate3 ( current_fs, inode_nr, *inode, BLOCK_FLAG_DATA_ONLY, NULL, read_syslink_block, &priv );
 					if (retval || priv.error)
 							 goto errout;
 				}
@@ -561,7 +561,7 @@ return retval;
 
 
 // check inode; return true if blocks not allocated and not recovered
-int check_file_stat(struct ext2_inode *inode){
+int check_file_stat(struct ext2_inode *inode, ext2_ino_t inode_nr){
 	int 				retval =-1;
 	struct alloc_recover_stat	stat;
 
@@ -574,7 +574,7 @@ int check_file_stat(struct ext2_inode *inode){
 		 ! (ext2fs_inode_data_blocks(current_fs,inode)))
 		retval = 1;
 	else{
-		retval = local_block_iterate3 ( current_fs, *inode, BLOCK_FLAG_DATA_ONLY, NULL, check_block_stat, &stat );
+		retval = local_block_iterate3 ( current_fs, inode_nr, *inode, BLOCK_FLAG_DATA_ONLY, NULL, check_block_stat, &stat );
 		if ( retval ) return 0;
 		retval = ((! stat.allocated) && (! stat.recovered)) ? 1 : 0 ;
 	}
@@ -583,7 +583,7 @@ return retval;
 
 
 // check Datafile return the percentage of not allocated blocks
-int check_file_recover(struct ext2_inode *inode){
+int check_file_recover(struct ext2_inode *inode, ext2_ino_t inode_nr){
 	int retval =-1;
 	struct alloc_stat stat;
 
@@ -596,7 +596,7 @@ int check_file_recover(struct ext2_inode *inode){
 		 ! (ext2fs_inode_data_blocks(current_fs,inode)))
 		retval = 100;
 	else{
-		retval = local_block_iterate3 ( current_fs, *inode, BLOCK_FLAG_DATA_ONLY, NULL, check_block, &stat );
+		retval = local_block_iterate3 ( current_fs, inode_nr, *inode, BLOCK_FLAG_DATA_ONLY, NULL, check_block, &stat );
 		if ( retval ) return 0;
 	
 		if (stat.not_allocated)
