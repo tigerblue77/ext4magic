@@ -19,6 +19,10 @@
 // A special linked list for collect directory entry
 // Used for manage old directory blocks in journal
  
+#ifdef HAVE_CONFIG_H
+#include <config.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include "dir_list.h"
