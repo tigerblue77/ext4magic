@@ -134,7 +134,7 @@ char* identify_filename(char* i_pathname, unsigned char *tmp_buf, struct ext2_in
 	if ((inode->i_mode  & LINUX_S_IFMT) == LINUX_S_IFREG){
 		memset(tmp_buf,0,12 * current_fs->blocksize);
 		// iterate first 12 Data Blocks
-		retval = local_block_iterate3 ( current_fs, *inode, BLOCK_FLAG_DATA_ONLY, NULL, first_blocks, &priv );
+		retval = local_block_iterate3 ( current_fs, inode_nr, *inode, BLOCK_FLAG_DATA_ONLY, NULL, first_blocks, &priv );
 		if (priv.count <12){
 			strncpy(magic_buf, magic_buffer(cookie , tmp_buf,
 				((inode->i_size < 12 * current_fs->blocksize) ?  inode->i_size : (12 * current_fs->blocksize))), 60);
@@ -409,7 +409,7 @@ while ( get_pool_block(buf) ){
 #endif
 		if((inode.i_dtime) || (!inode.i_size) || (!inode.i_blocks) || (!LINUX_S_ISREG(inode.i_mode)))
 			continue;
-		if (check_file_stat(&inode)){
+		if (check_file_stat(&inode, inode_nr)){
 			i_pathname = identify_filename(i_pathname, tmp_buf, &inode, inode_nr);
 			sprintf(pathname,"<%lu>",(long unsigned int)inode_nr);
 			recover_file(des_dir,"MAGIC-2", ((i_pathname)?i_pathname : pathname), &inode, inode_nr, 1);
