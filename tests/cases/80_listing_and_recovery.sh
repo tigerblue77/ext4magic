@@ -13,18 +13,6 @@
 # on ext4 is pinned in its own test cases at the end, which is where that
 # difference is written down.
 
-# Recover a path out of an image and print the directory it was recovered into
-# Usage : TARGET=$(recover_path_from "$IMAGE" "documents" "$DELETION_MARK_TIME")
-function recover_path_from() {
-  local -r IMAGE="$1"
-  local -r PATHNAME="$2"
-  local -r AFTER="$3"
-  local -r TARGET="$(new_recovery_directory)"
-
-  run_ext4magic -f "$PATHNAME" -r -d "$TARGET" -a "$AFTER" "$IMAGE" > /dev/null 2>&1 || true
-  printf '%s' "$TARGET"
-}
-
 # An image filled and emptied, ready for a recovery.
 #
 # It sets $IMAGE_WITH_DELETED_FILES, $ORIGINALS_DIRECTORY and
