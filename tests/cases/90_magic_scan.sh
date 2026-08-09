@@ -95,16 +95,12 @@ function test_what_the_second_pass_carves_is_filed_under_the_type_it_recognised(
   # A file the journal knows the inode of but not the name of is written under
   # its media type, which is the only thing left to call it by
   local -r IMAGE="$(make_image --type ext3 --size 64 --name magic_by_type)"
-  local -r TARGET="$(new_recovery_directory)"
   local -r ORIGINAL="$CASE_DIRECTORY/plain.txt"
-  local MARK
 
   make_local_file "$ORIGINAL" 30000 41
   CARVED_FILE="$ORIGINAL"
   build_until_recoverable "$IMAGE" "$ORIGINAL" build_a_deleted_carvable_file || return 1
-  MARK="$DELETION_MARK_TIME"
-
-  run_ext4magic -m -d "$TARGET" -a "$MARK" "$IMAGE" || true
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   local -r RECOVERED="$(recovered_files "$TARGET")"
   assert_not_empty "$RECOVERED" "the scan carved something out" || return 1
@@ -125,16 +121,12 @@ function test_a_carved_text_file_is_recognised_as_text() {
   # The type is decided by libmagic on the bytes of the first block, and plain
   # text is the one type every libmagic build recognises the same way
   local -r IMAGE="$(make_image --type ext3 --size 64 --name magic_text)"
-  local -r TARGET="$(new_recovery_directory)"
   local -r ORIGINAL="$CASE_DIRECTORY/plain.txt"
-  local MARK
 
   make_local_file "$ORIGINAL" 40000 42
   CARVED_FILE="$ORIGINAL"
   build_until_recoverable "$IMAGE" "$ORIGINAL" build_a_deleted_carvable_file || return 1
-  MARK="$DELETION_MARK_TIME"
-
-  run_ext4magic -m -d "$TARGET" -a "$MARK" "$IMAGE" || true
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   local -r RECOVERED="$(recovered_file_matching "$TARGET" "$ORIGINAL")"
   if [ -n "$RECOVERED" ]; then

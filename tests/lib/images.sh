@@ -30,6 +30,16 @@
 # function of the options it was made with
 readonly FIXED_FILESYSTEM_UUID="0e17ac9c-1eab-4d1f-9c9a-e0a6a02e4f2e"
 
+# What populate_and_delete() writes and then deletes. Three sizes, so that three
+# different paths through the block reader are covered : one that fits in the
+# inode's direct blocks, one that needs an indirect block, and one that needs a
+# double indirect one
+readonly DELETED_BY_THE_FIXTURE=(
+  "documents/notes.txt"
+  "documents/reports/quarterly.txt"
+  "pictures/holiday.dat"
+)
+
 # Path of the directory this run's images live in
 function images_directory() {
   printf '%s/images' "$TEST_TEMPORARY_DIRECTORY"
@@ -338,31 +348,44 @@ function build_the_deleted_tree_once() {
   export ORIGINALS_DIRECTORY DELETION_MARK_TIME
 }
 
-# Whether the journal kept what the fixture is for : a copy of an inode from
-# before its file was deleted, AND the copy of the directory block that gives it
-# back its name. Answered by recovering into a throwaway directory and looking
-# for one known file under its own path, and asserting nothing.
+# Recover from the image, and say whether the journal kept what the fixture is
+# for : a copy of an inode from before its file was deleted, AND the copy of the
+# directory block that gives it back its name.
+#
+# The result is KEPT, in $RECOVERED_DIRECTORY, rather than thrown away. That is
+# the point of doing it here. A fixture that checked the precondition with one
+# recovery and then let the test case run a second one was observed to have the
+# two disagree -- the check passed, and the run the assertions were made against
+# came back with the bytes under invented "MAGIC-2/..." names and no tree. Two
+# runs of "-M" over one unchanged image are otherwise identical, measured ten
+# times over, so rather than keep hunting for what separates them the fixture
+# now does the recovery once and hands it over. One run, one set of results,
+# nothing left for the two to disagree about.
 #
 # The path matters, not only the content : the test cases built on this fixture
 # assert where a recovered file lands, and a run that carved the right bytes out
 # under an invented name has not given them anything to assert on
 function the_journal_kept_a_copy_from_before_the_deletion() {
   local -r IMAGE="$1"
-  local -r PROBE_DIRECTORY="$IMAGE.precondition_probe"
-  local -r CANONICAL_PATH="documents/notes.txt"
+  local RELATIVE_PATH
 
-  rm -rf "$PROBE_DIRECTORY"
-  mkdir -p "$PROBE_DIRECTORY"
-  "$(ext4magic_binary)" -M -d "$PROBE_DIRECTORY" -a "$DELETION_MARK_TIME" "$IMAGE" \
+  RECOVERED_DIRECTORY="$IMAGE.recovered"
+  export RECOVERED_DIRECTORY
+  rm -rf "$RECOVERED_DIRECTORY"
+  mkdir -p "$RECOVERED_DIRECTORY"
+  "$(ext4magic_binary)" -M -d "$RECOVERED_DIRECTORY" -a "$DELETION_MARK_TIME" "$IMAGE" \
     > /dev/null 2>&1 || true
 
-  local FOUND=1
-  if [ -f "$PROBE_DIRECTORY/$CANONICAL_PATH" ] &&
-    cmp -s "$ORIGINALS_DIRECTORY/$CANONICAL_PATH" "$PROBE_DIRECTORY/$CANONICAL_PATH"; then
-    FOUND=0
-  fi
-  rm -rf "$PROBE_DIRECTORY"
-  return "$FOUND"
+  # All three of them, at their own paths. The fixture's promise to the test
+  # cases built on it is the whole deleted tree, and they take it up one file at
+  # a time : one test case reads the listing of documents/reports, another
+  # compares pictures/holiday.dat. A precondition covering only the first file
+  # lets the others be asserted against an image that never held what they need
+  for RELATIVE_PATH in "${DELETED_BY_THE_FIXTURE[@]}"; do
+    [ -f "$RECOVERED_DIRECTORY/$RELATIVE_PATH" ] || return 1
+    cmp -s "$ORIGINALS_DIRECTORY/$RELATIVE_PATH" "$RECOVERED_DIRECTORY/$RELATIVE_PATH" || return 1
+  done
+  return 0
 }
 
 # The tree every recovery test case starts from, built until it holds what it is
@@ -432,15 +455,26 @@ function populate_and_delete() {
 # made filesystem each time, and has to leave $DELETION_MARK_TIME behind, which
 # close_the_transaction_and_mark() does.
 #
+# The recovery it made is kept, in $RECOVERED_DIRECTORY, for the caller to assert
+# against -- see the_journal_kept_a_copy_from_before_the_deletion() for why the
+# caller must not make a second one of its own.
+#
 # Three attempts, then a failure rather than a skip : one miss is jbd2
 # checkpointing early, three independent images all coming up empty is the
 # recovery no longer working, which this must not be able to hide
 #
-# Usage : build_until_recoverable "$IMAGE" "$ORIGINAL_FILE" a_builder_function || return 1
+# A fourth argument asks for the file to be back under a PARTICULAR path inside
+# the recovery, rather than merely somewhere in it under whatever name the scan
+# chose. Give it whenever the test case asserts on a path, so that the fixture
+# waits for the same thing the assertions do -- a build whose bytes came back
+# under an invented "MAGIC-2/..." name has not given those assertions anything
+#
+# Usage : build_until_recoverable "$IMAGE" "$ORIGINAL_FILE" a_builder [path/in/the/recovery]
 function build_until_recoverable() {
   local -r IMAGE="$1"
   local -r ORIGINAL="$2"
   local -r BUILDER="$3"
+  local -r EXPECTED_PATH="${4:-}"
   local -r TYPE="$(filesystem_type_of "$IMAGE")"
   local -r BLOCK_SIZE="$(block_size_of "$IMAGE")"
   local -r INODE_SIZE="$(inode_size_of "$IMAGE")"
@@ -449,23 +483,27 @@ function build_until_recoverable() {
   for ATTEMPT in 1 2 3; do
     "$BUILDER" "$IMAGE" || return 1
 
-    local PROBE_DIRECTORY="$IMAGE.precondition_probe"
-    rm -rf "$PROBE_DIRECTORY"
-    mkdir -p "$PROBE_DIRECTORY"
-    "$(ext4magic_binary)" -M -d "$PROBE_DIRECTORY" -a "$DELETION_MARK_TIME" "$IMAGE" \
+    RECOVERED_DIRECTORY="$IMAGE.recovered"
+    export RECOVERED_DIRECTORY
+    rm -rf "$RECOVERED_DIRECTORY"
+    mkdir -p "$RECOVERED_DIRECTORY"
+    "$(ext4magic_binary)" -M -d "$RECOVERED_DIRECTORY" -a "$DELETION_MARK_TIME" "$IMAGE" \
       > /dev/null 2>&1 || true
-    if [ -n "$(recovered_file_matching "$PROBE_DIRECTORY" "$ORIGINAL")" ]; then
-      rm -rf "$PROBE_DIRECTORY"
+    if [ -n "$EXPECTED_PATH" ]; then
+      if [ -f "$RECOVERED_DIRECTORY/$EXPECTED_PATH" ] &&
+        cmp -s "$ORIGINAL" "$RECOVERED_DIRECTORY/$EXPECTED_PATH"; then
+        return 0
+      fi
+    elif [ -n "$(recovered_file_matching "$RECOVERED_DIRECTORY" "$ORIGINAL")" ]; then
       return 0
     fi
-    rm -rf "$PROBE_DIRECTORY"
 
     mke2fs -q -F -t "$TYPE" -U "$FIXED_FILESYSTEM_UUID" -E root_owner=0:0 \
       -b "$BLOCK_SIZE" -I "$INODE_SIZE" "$IMAGE" > /dev/null 2>&1 || return 1
   done
 
   fail "the journal kept no copy from before the deletion, in three images running" \
-    "the file looked for was: [$ORIGINAL]" \
+    "the file looked for was: [$ORIGINAL]${EXPECTED_PATH:+, under [$EXPECTED_PATH]}" \
     "three in a row means the recovery found nothing, not that one image was unlucky"
   return 1
 }

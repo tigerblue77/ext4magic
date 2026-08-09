@@ -179,10 +179,9 @@ function test_a_recovered_file_keeps_the_name_and_the_directory_it_was_deleted_f
     fail "the image could not be filled and emptied"
     return 1
   }
-  local -r IMAGE="$IMAGE_WITH_DELETED_FILES"
-  local -r TARGET="$(new_recovery_directory)"
-
-  run_ext4magic -M -d "$TARGET" -a "$DELETION_MARK_TIME" "$IMAGE" || true
+  # The recovery the fixture already made, rather than a second one of its own :
+  # see the_journal_kept_a_copy_from_before_the_deletion() for why
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   assert_file_exists "$TARGET/documents/notes.txt" "the file is under the name it had"
   assert_file_exists "$TARGET/documents/reports/quarterly.txt" "and so is the one in a subdirectory"
@@ -196,10 +195,7 @@ function test_a_recovered_file_matches_the_original_byte_for_byte_under_its_own_
     fail "the image could not be filled and emptied"
     return 1
   }
-  local -r IMAGE="$IMAGE_WITH_DELETED_FILES"
-  local -r TARGET="$(new_recovery_directory)"
-
-  run_ext4magic -M -d "$TARGET" -a "$DELETION_MARK_TIME" "$IMAGE" || true
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   local RELATIVE_PATH
   for RELATIVE_PATH in documents/notes.txt documents/reports/quarterly.txt pictures/holiday.dat; do
@@ -430,9 +426,7 @@ function test_a_deleted_file_is_recovered_whatever_the_block_size_of_the_filesys
       fail "the $BLOCK_SIZE byte block image could not be filled and emptied"
       continue
     }
-    TARGET="$(new_recovery_directory)"
-
-    run_ext4magic -M -d "$TARGET" -a "$DELETION_MARK_TIME" "$IMAGE" > /dev/null 2>&1 || true
+    TARGET="$RECOVERED_DIRECTORY"
 
     if [ -f "$TARGET/documents/notes.txt" ]; then
       assert_files_identical "$ORIGINALS_DIRECTORY/documents/notes.txt" \
@@ -459,9 +453,7 @@ function test_a_deleted_file_is_recovered_whatever_the_inode_size_of_the_filesys
       fail "the $INODE_SIZE byte inode image could not be filled and emptied"
       continue
     }
-    TARGET="$(new_recovery_directory)"
-
-    run_ext4magic -M -d "$TARGET" -a "$DELETION_MARK_TIME" "$IMAGE" > /dev/null 2>&1 || true
+    TARGET="$RECOVERED_DIRECTORY"
 
     if [ -f "$TARGET/documents/notes.txt" ]; then
       assert_files_identical "$ORIGINALS_DIRECTORY/documents/notes.txt" \
@@ -496,13 +488,11 @@ function test_the_recovery_of_a_file_larger_than_one_indirect_block_comes_back_w
   # after 268 kibibytes, which is the boundary get_dind_block_len() is about
   local -r IMAGE="$(make_image --type ext3 --size 96 --block-size 1024 --name recovery_large_file)"
   local -r ORIGINAL="$CASE_DIRECTORY/large.dat"
-  local -r TARGET="$(new_recovery_directory)"
 
   make_local_file "$ORIGINAL" 500000 7
-  build_until_recoverable "$IMAGE" "$ORIGINAL" build_a_deleted_large_file || return 1
-  local -r MARK="$DELETION_MARK_TIME"
-
-  run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
+  build_until_recoverable "$IMAGE" "$ORIGINAL" build_a_deleted_large_file \
+    "big/large.dat" || return 1
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   if [ -f "$TARGET/big/large.dat" ]; then
     assert_files_identical "$ORIGINAL" "$TARGET/big/large.dat" \
@@ -532,7 +522,6 @@ function test_a_deleted_directory_is_recovered_with_everything_that_was_in_it() 
   require_loop_mount || return 0
   # A recursive delete is the case the magic recovery was written for
   local -r IMAGE="$(make_image --type ext3 --size 64 --name recovery_of_a_tree)"
-  local -r TARGET="$(new_recovery_directory)"
   local -r ORIGINALS="$CASE_DIRECTORY/originals"
 
   mkdir -p "$ORIGINALS/project/source" "$ORIGINALS/project/notes"
@@ -541,10 +530,8 @@ function test_a_deleted_directory_is_recovered_with_everything_that_was_in_it() 
   make_local_file "$ORIGINALS/project/notes/todo.txt" 3000 13
 
   build_until_recoverable "$IMAGE" "$ORIGINALS/project/source/main.c" \
-    build_a_deleted_project_tree || return 1
-  local -r MARK="$DELETION_MARK_TIME"
-
-  run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
+    build_a_deleted_project_tree "project/source/main.c" || return 1
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   local RELATIVE_PATH
   for RELATIVE_PATH in project/source/main.c project/source/util.c project/notes/todo.txt; do
@@ -581,14 +568,11 @@ function test_a_recovered_file_keeps_the_mode_and_the_owner_it_had() {
   # The inode copy carries them, and a recovery that dropped them would hand
   # back a tree nobody can put back where it came from
   local -r IMAGE="$(make_image --type ext3 --size 64 --name recovery_of_attributes)"
-  local -r TARGET="$(new_recovery_directory)"
 
   make_local_file "$CASE_DIRECTORY/private.txt" 2000 21
   build_until_recoverable "$IMAGE" "$CASE_DIRECTORY/private.txt" \
-    build_a_deleted_file_with_attributes || return 1
-  local -r MARK="$DELETION_MARK_TIME"
-
-  run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
+    build_a_deleted_file_with_attributes "attributes/private.txt" || return 1
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   if [ ! -f "$TARGET/attributes/private.txt" ]; then
     fail "the file was not recovered" \
@@ -631,7 +615,6 @@ function test_a_name_with_spaces_or_bytes_that_are_not_text_survives_the_recover
   # An ext4 name is a byte string, and the recovery writes it back out as a file
   # name. Anything lost on the way is a file recovered under the wrong name
   local -r IMAGE="$(make_image --type ext3 --size 64 --name recovery_of_awkward_names)"
-  local -r TARGET="$(new_recovery_directory)"
   local NAME INDEX
 
   INDEX=0
@@ -641,10 +624,8 @@ function test_a_name_with_spaces_or_bytes_that_are_not_text_survives_the_recover
   done
 
   build_until_recoverable "$IMAGE" "$CASE_DIRECTORY/awkward_0" \
-    build_deleted_files_with_awkward_names || return 1
-  local -r MARK="$DELETION_MARK_TIME"
-
-  run_ext4magic -M -d "$TARGET" -a "$MARK" "$IMAGE" > /dev/null 2>&1 || true
+    build_deleted_files_with_awkward_names "awkward/${AWKWARD_NAMES[0]}" || return 1
+  local -r TARGET="$RECOVERED_DIRECTORY"
 
   for NAME in "${AWKWARD_NAMES[@]}"; do
     assert_file_exists "$TARGET/awkward/$NAME" "\"$NAME\" came back under its own name"
