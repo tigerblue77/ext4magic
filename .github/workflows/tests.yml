@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # ext4magic links against e2fsprogs, libmagic, zlib and bzip2, and the
       # suite builds its own filesystems with mke2fs and fills them with debugfs
@@ -55,7 +55,7 @@ jobs:
         run: sudo chown -R "$(id -u):$(id -g)" test-results || true
 
       - name: Upload the test results
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with:
           name: Test Results
@@ -67,7 +67,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install the build and test dependencies
         run: |
@@ -105,7 +105,7 @@ jobs:
       actions: read
     steps:
       - name: Download the test results
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: Test Results
           path: test-results
