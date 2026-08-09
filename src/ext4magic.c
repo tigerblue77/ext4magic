@@ -79,7 +79,7 @@ void print_version ( void )
         else
                 printf("CPU is big endian.\n");
 #ifdef EXPERT_MODE
-	printf("Expert Mode is activ\n");
+	printf("Expert Mode is active\n");
 #endif
 }
 
@@ -323,7 +323,7 @@ errout:
 
 //subfunction for main
 void print_modus_error(){
-	char message0[] = "Invalide parameter : only input of one modus allowed [ -M | -m | -R | -r | -L | -l | -H | D ]\n";
+	char message0[] = "Invalid parameter : only input of one modus allowed [ -M | -m | -R | -r | -L | -l | -H | D ]\n";
 	fprintf(stderr,"%s",message0);
 }
 
@@ -762,7 +762,7 @@ if ((mode && magicscan) || disaster){
 if (mode & INPUT_TIME){
 	if (! ((t_after > 315601200) && (t_after < t_before))) // 315601200 = "1980-01-01 20:00:00"
 		{
-		  fprintf(stderr,"Invalide parameter: range \"AFTER <--> BEFORE\"\n");
+		  fprintf(stderr,"Invalid parameter: range \"AFTER <--> BEFORE\"\n");
 		  fprintf(stderr,"the automatic default parameter AFTER=\"now -1 day\" ; BEFORE=\"now\"\n");
 		  fprintf(stderr,"\"-b before-timestamp\" must greater then \"-a after-timestamp\"\n"); 
 		  fprintf(stderr,"Example : %s -H -b $(date +%%s) -a $(date -d \"-1 day\" +%%s) %s\n",progname,current_fs->device_name);
@@ -770,7 +770,7 @@ if (mode & INPUT_TIME){
                   goto errout;
 	}
 	if (mode & PRINT_TRANSACTION){
-		  fprintf(stderr,"Invalide parameter: use either Transaction-Nr or Timestamps for search in Journal\n");
+		  fprintf(stderr,"Invalid parameter: use either Transaction-Nr or Timestamps for search in Journal\n");
  		  exitval = EXIT_FAILURE ; 
                   goto errout;
 	}
@@ -943,8 +943,8 @@ if (mode & READ_JOURNAL){
 
 //print the after and before Time 
 	if (mode & INPUT_TIME){
-		printf("Activ Time after  : %s", time_to_string(t_after));
-		printf("Activ Time before : %s", time_to_string(t_before));
+		printf("Active Time after  : %s", time_to_string(t_after));
+		printf("Active Time before : %s", time_to_string(t_before));
 	}
 
 
