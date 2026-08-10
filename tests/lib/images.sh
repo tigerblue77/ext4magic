@@ -266,9 +266,12 @@ function unmount_image() {
 # be overwritten by the first transaction after the next mount. That trades one
 # intermittent failure for another.
 #
-# What is used instead is the filesystem's own commit interval, set to a second
-# by mount_image(), and waiting out two of them. The image stays mounted and the
-# journal keeps everything it has.
+# What is used instead is an idle gap either side of the mark, at the
+# filesystem's own commit interval -- the default one, which mount_image() does
+# not shorten. Three seconds each way clears the five second interval jbd2 uses,
+# so the writes are committed before the mark and the deletions go into a
+# transaction after it. The image stays mounted throughout and the journal keeps
+# everything it has.
 #
 # It sets two variables rather than printing one of them : a command
 # substitution would run it in a subshell and $DELETION_MARK_TIME would be lost

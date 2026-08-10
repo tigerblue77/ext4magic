@@ -54,6 +54,33 @@ gets a readable result.
 | `unit/40_hard_link_stack.c` | The database that turns several names on one inode into links rather than copies |
 | `unit/50_extent_database.c` | The ext4 extent cache : what it merges, what it keeps apart, and what it can find again |
 
+## What is deliberately not covered
+
+A suite that does not say where it stops is read as covering everything. This
+one stops here :
+
+- **`file_type.c`**, the magic database the third pass carves with. Plain text
+  is exercised end to end ; the other types it recognises are not. They are a
+  table of signatures rather than logic, and reaching each one means writing a
+  file of that type into an image and hoping the scan carves it, which is the
+  least reliable thing this suite does.
+- **`get_tind_block_len()`**, the triple indirect block reader. The double
+  indirect one is reached, by a 500 000 byte file on a 1024 byte block
+  filesystem ; the triple indirect one starts past 64 MiB on that filesystem,
+  which is larger than the journal that would have to hold a copy of it.
+- **Recovering from ext4.** Blocked by #15 and #5, not by the suite : what
+  ext4magic does there today is recorded by two test cases in
+  `cases/80_listing_and_recovery.sh`, both written to fail loudly once those are
+  fixed, so that they are rewritten into what they should assert rather than
+  left passing.
+- **The expert options** `-Q -c -D -s -n`, which only exist in a build
+  configured with `--enable-expert-mode`. What is checked is that a default
+  build refuses them and an expert build takes them, not what they do.
+- **`is_unicode()`'s third byte of a four byte sequence.** It is unchecked in
+  `src/util.c` (#21), and asserting on what it returns today would be writing
+  the defect down as correct. The issue carries the assertion to add once it is
+  fixed.
+
 ## Two kinds of test case, one report
 
 ext4magic is a C program that reads filesystems, so most of it can only be

@@ -723,7 +723,13 @@ function test_a_path_cannot_be_resolved_on_an_ext4_filesystem() {
   require_loop_mount || return 0
   # The first step of every "-f" run, and it fails on ext4 while succeeding on
   # an ext3 filesystem built the same way. The directory asked for here was
-  # never deleted : it is plainly in the filesystem
+  # never deleted : it is plainly in the filesystem.
+  #
+  # Like the test case above, this records a defect rather than a wanted
+  # behaviour, so it is written to go red the day the defect is fixed : the
+  # assertion below is that the resolution FAILS, and a build where it succeeds
+  # fails this test case and has to have it rewritten into the assertion it
+  # should always have been -- that "documents" resolves to its inode
   local -r IMAGE="$(make_image --type ext4 --size 64 --name ext4_path_resolution)"
 
   populate_and_delete "$IMAGE" || {
@@ -732,8 +738,13 @@ function test_a_path_cannot_be_resolved_on_an_ext4_filesystem() {
   }
 
   run_ext4magic -f documents -l -a "$DELETION_MARK_TIME" "$IMAGE" || true
-  assert_contains "$CAPTURED_STDERR" 'Inode not found for "documents"' \
-    "a directory that is plainly there cannot be resolved on ext4"
+  if printf '%s' "$CAPTURED_STDERR" | grep -q 'Inode not found for "documents"'; then
+    pass
+  else
+    fail "a directory plainly in the filesystem resolved on ext4, which this test case says it does not" \
+      "this is the outcome to want -- update this test case rather than leave it passing" \
+      "what the run said: [$CAPTURED_OUTPUT]"
+  fi
 
   # The root directory is the one path that still resolves, because it is
   # reached by its inode number rather than by walking a directory
