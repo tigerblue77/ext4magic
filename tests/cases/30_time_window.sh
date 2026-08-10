@@ -34,10 +34,10 @@ function test_an_after_time_on_its_own_leaves_now_as_the_end_of_the_window() {
   # shellcheck disable=SC2046
   run_ext4magic $(window_reported_by) -a "$AFTER" "$IMAGE" || true
 
-  assert_contains "$CAPTURED_OUTPUT" "Activ Time after  : $(as_ext4magic_prints_a_time "$AFTER")" \
+  assert_contains "$CAPTURED_OUTPUT" "Active Time after  : $(as_ext4magic_prints_a_time "$AFTER")" \
     "the after time is the one that was given"
 
-  local -r REPORTED_BEFORE="$(printf '%s\n' "$CAPTURED_OUTPUT" | sed -n 's/^Activ Time before : //p')"
+  local -r REPORTED_BEFORE="$(printf '%s\n' "$CAPTURED_OUTPUT" | sed -n 's/^Active Time before : //p')"
   assert_not_empty "$REPORTED_BEFORE" "an end of window was reported" || return 1
 
   local -r REPORTED_BEFORE_SECONDS=$(date -d "$REPORTED_BEFORE" +%s)
@@ -61,10 +61,10 @@ function test_a_before_time_on_its_own_starts_the_window_a_day_earlier() {
   # shellcheck disable=SC2046
   run_ext4magic $(window_reported_by) -b "$BEFORE" "$IMAGE" || true
 
-  assert_contains "$CAPTURED_OUTPUT" "Activ Time before : $(as_ext4magic_prints_a_time "$BEFORE")" \
+  assert_contains "$CAPTURED_OUTPUT" "Active Time before : $(as_ext4magic_prints_a_time "$BEFORE")" \
     "the before time is the one that was given"
 
-  local -r REPORTED_AFTER="$(printf '%s\n' "$CAPTURED_OUTPUT" | sed -n 's/^Activ Time after  : //p')"
+  local -r REPORTED_AFTER="$(printf '%s\n' "$CAPTURED_OUTPUT" | sed -n 's/^Active Time after  : //p')"
   assert_not_empty "$REPORTED_AFTER" "a start of window was reported" || return 1
 
   local -r WINDOW_WIDTH=$(( BEFORE - $(date -d "$REPORTED_AFTER" +%s) ))
@@ -105,9 +105,9 @@ function test_both_ends_of_the_window_are_taken_as_they_were_given() {
   # shellcheck disable=SC2046
   run_ext4magic $(window_reported_by) -a "$AFTER" -b "$BEFORE" "$IMAGE" || true
 
-  assert_contains "$CAPTURED_OUTPUT" "Activ Time after  : $(as_ext4magic_prints_a_time "$AFTER")" \
+  assert_contains "$CAPTURED_OUTPUT" "Active Time after  : $(as_ext4magic_prints_a_time "$AFTER")" \
     "the start of the window"
-  assert_contains "$CAPTURED_OUTPUT" "Activ Time before : $(as_ext4magic_prints_a_time "$BEFORE")" \
+  assert_contains "$CAPTURED_OUTPUT" "Active Time before : $(as_ext4magic_prints_a_time "$BEFORE")" \
     "and its end"
 }
 
@@ -219,9 +219,9 @@ function test_every_mode_that_reads_the_journal_reports_the_window_it_is_working
   local MODE
   for MODE in -T -J -l -L; do
     run_ext4magic "$MODE" -f / -a 1600000000 -b 1700000000 "$IMAGE" || true
-    assert_contains "$CAPTURED_OUTPUT" "Activ Time after" \
+    assert_contains "$CAPTURED_OUTPUT" "Active Time after" \
       "\"$MODE\" reports the start of its window"
-    assert_contains "$CAPTURED_OUTPUT" "Activ Time before" \
+    assert_contains "$CAPTURED_OUTPUT" "Active Time before" \
       "\"$MODE\" reports the end of it"
   done
 }
@@ -236,7 +236,7 @@ function test_the_histogram_does_not_report_a_window_because_it_does_not_read_th
   run_ext4magic -H -a 1600000000 -b 1700000000 "$IMAGE" || true
 
   assert_equals "0" "$CAPTURED_EXIT_CODE" "the run goes ahead"
-  assert_not_contains "$CAPTURED_OUTPUT" "Activ Time after" "without the journal banner"
+  assert_not_contains "$CAPTURED_OUTPUT" "Active Time after" "without the journal banner"
   # The window is on the histogram instead : its start is in the header, and its
   # ten rows are the ends of the ten buckets it was cut into
   assert_contains "$CAPTURED_OUTPUT" "after  --------------------  $(as_ext4magic_prints_a_time 1600000000)" \
@@ -261,7 +261,7 @@ function test_the_magic_scan_takes_the_window_over_from_the_filesystem_when_none
 
   run_ext4magic -M -d "$TARGET" "$IMAGE" || true
 
-  assert_contains "$CAPTURED_OUTPUT" "Activ Time after" "a window was settled on"
+  assert_contains "$CAPTURED_OUTPUT" "Active Time after" "a window was settled on"
   assert_not_contains "$CAPTURED_OUTPUT" 'range "AFTER <--> BEFORE"' "and it is a valid one"
   assert_not_contains "$CAPTURED_OUTPUT" "No time window found" \
     "the deletions gave it something to start from"
