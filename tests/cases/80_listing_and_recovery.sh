@@ -679,22 +679,24 @@ function test_a_listing_of_a_directory_never_mentions_a_file_that_was_not_there(
   assert_not_contains "$CAPTURED_STDOUT" "kept.txt" "and neither is one of a third"
 }
 
-function test_nothing_is_recovered_from_an_ext4_filesystem_made_with_todays_defaults() {
+function test_a_deleted_file_is_recovered_from_an_ext4_filesystem_made_with_todays_defaults() {
   require_root || return 0
   require_loop_mount || return 0
-  # The difference between the two filesystems ext4magic is named after, written
-  # down rather than left out. On an ext4 made the way mke2fs makes one today,
-  # not one of the deleted files comes back with its content.
+  # The difference between the two filesystems ext4magic is named after used to
+  # be that only the ext3 one worked. On an ext4 made the way mke2fs makes one
+  # today -- metadata_csum, and so a journal carrying checksum_v3 -- not one of
+  # the deleted files came back with its content.
   #
-  # The check is "no recovered file holds what was deleted" rather than a count
-  # or a set of names, because there are two ways it fails today and this suite
-  # should not have to be edited when one of them is fixed and the other is not :
-  # the run either writes files of the right length holding nothing but zeros, or
-  # writes none at all. Either way nothing came back.
+  # Two independent defects caused that, and both are fixed now :
+  #   - the journal descriptor tags were sized as 8 or 12 bytes, the layouts
+  #     from before journal checksums, so the journal-block to filesystem-block
+  #     map was built with the wrong stride ;
+  #   - the extent trees were opened with an inode number of zero, and libext2fs
+  #     seeds the extent block checksum with the real one, so every descent
+  #     below the root node failed on a metadata_csum filesystem.
   #
-  # An ext3 filesystem built and emptied the same way, by the test cases above,
-  # recovers every one of them byte for byte -- so this is not the suite failing
-  # to produce something recoverable.
+  # The check is the same one the ext3 cases above make : each deleted file
+  # comes back byte for byte, under its own name.
   local -r IMAGE="$(make_image --type ext4 --size 64 --name ext4_with_todays_defaults)"
   local -r TARGET="$(new_recovery_directory)"
 
@@ -709,27 +711,22 @@ function test_nothing_is_recovered_from_an_ext4_filesystem_made_with_todays_defa
   local RELATIVE_PATH
   for RELATIVE_PATH in documents/notes.txt documents/reports/quarterly.txt pictures/holiday.dat; do
     if [ -n "$(recovered_file_matching "$TARGET" "$ORIGINALS_DIRECTORY/$RELATIVE_PATH")" ]; then
-      fail "\"$RELATIVE_PATH\" came back from an ext4 filesystem, which this test case says it does not" \
-        "this is the outcome to want -- update this test case rather than leave it passing" \
-        "the recovery produced: [$(recovered_files "$TARGET" | tr '\n' ' ')]"
-    else
       pass
+    else
+      fail "\"$RELATIVE_PATH\" did not come back from an ext4 filesystem made with todays defaults" \
+        "the recovery produced: [$(recovered_files "$TARGET" | tr '\n' ' ')]"
     fi
   done
 }
 
-function test_a_path_cannot_be_resolved_on_an_ext4_filesystem() {
+function test_a_path_is_resolved_on_an_ext4_filesystem() {
   require_root || return 0
   require_loop_mount || return 0
-  # The first step of every "-f" run, and it fails on ext4 while succeeding on
-  # an ext3 filesystem built the same way. The directory asked for here was
-  # never deleted : it is plainly in the filesystem.
-  #
-  # Like the test case above, this records a defect rather than a wanted
-  # behaviour, so it is written to go red the day the defect is fixed : the
-  # assertion below is that the resolution FAILS, and a build where it succeeds
-  # fails this test case and has to have it rewritten into the assertion it
-  # should always have been -- that "documents" resolves to its inode
+  # The first step of every "-f" run. It used to fail on ext4 while succeeding
+  # on an ext3 filesystem built the same way, because the extent tree of every
+  # directory was walked through ext4magic's own copies of two structures
+  # libext2fs keeps private, and those copies had gone stale. The directory
+  # asked for here was never deleted : it is plainly in the filesystem.
   local -r IMAGE="$(make_image --type ext4 --size 64 --name ext4_path_resolution)"
 
   populate_and_delete "$IMAGE" || {
@@ -738,16 +735,11 @@ function test_a_path_cannot_be_resolved_on_an_ext4_filesystem() {
   }
 
   run_ext4magic -f documents -l -a "$DELETION_MARK_TIME" "$IMAGE" || true
-  if printf '%s' "$CAPTURED_STDERR" | grep -q 'Inode not found for "documents"'; then
-    pass
-  else
-    fail "a directory plainly in the filesystem resolved on ext4, which this test case says it does not" \
-      "this is the outcome to want -- update this test case rather than leave it passing" \
-      "what the run said: [$CAPTURED_OUTPUT]"
-  fi
+  assert_matches "$CAPTURED_STDOUT" 'Inode found "documents"' \
+    "a directory that is plainly in the filesystem resolves on ext4"
 
-  # The root directory is the one path that still resolves, because it is
-  # reached by its inode number rather than by walking a directory
+  # The root directory resolves too, as it always did : it is reached by its
+  # inode number rather than by walking a directory
   run_ext4magic -f / -l -a "$DELETION_MARK_TIME" "$IMAGE" || true
-  assert_matches "$CAPTURED_STDOUT" 'Inode found "" +2' "while the root directory itself still is"
+  assert_matches "$CAPTURED_STDOUT" 'Inode found "" +2' "and the root directory still does"
 }
