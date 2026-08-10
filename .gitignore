@@ -1,0 +1,25 @@
+# Everything ./configure and make produce. None of it belongs in the repository,
+# and without this list a "git status" after a build is unreadable.
+
+# configure's output
+/Makefile
+/src/Makefile
+/config.h
+/config.log
+/config.status
+/stamp-h1
+/libtool
+/autom4te.cache/
+*~
+
+# make's output
+/src/ext4magic
+/src/*.o
+/src/.deps/
+/src/.libs/
+*.lo
+*.la
+
+# what the test suite builds
+/test-results/
+/tests/unit/unit_tests
