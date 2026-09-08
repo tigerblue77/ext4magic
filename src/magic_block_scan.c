@@ -32,6 +32,11 @@
 
 //#define DEBUG_MAGIC_SCAN
 
+//the answers libmagic itself returns for content it can not identify,
+//we use them if libmagic reports an error (magic_buffer() == NULL)
+#define MAGIC_TEXT_DEF		"data"
+#define MAGIC_MIME_DEF		"application/octet-stream; charset=binary"
+
 extern ext2_filsys 		current_fs ;
 extern				char* magicfile;
 ext2fs_block_bitmap 		d_bmap = NULL ; 
@@ -517,6 +522,18 @@ static int is_ecryptfs(unsigned char* buf){
 }
 
 
+//magic_buffer() returns NULL if libmagic can not identify the buffer (see magic(3)),
+//a NULL source would let strncpy() crash. Copy only a real answer.
+//If "def" is set, it is copied instead of the missing answer,
+//if "def" is NULL, the destination keeps its old content.
+static void magic_strncpy(char *dest, const char *magic_str, const char *def, size_t len){
+	if (! magic_str)
+		magic_str = def ;
+	if (magic_str)
+		strncpy(dest, magic_str, len);
+}
+
+
 //magic scanner 
 //FIXME 
 static int magic_check_block(unsigned char* buf,magic_t cookie , magic_t cookie_f, char *magic_buf, __u32 size, blk_t blk, int deep){
@@ -538,18 +555,18 @@ static int magic_check_block(unsigned char* buf,magic_t cookie , magic_t cookie_
 	}
 
 	if (size > current_fs->blocksize){
-		strncpy(text,magic_buffer(cookie_f, buf, 512),60);
+		magic_strncpy(text,magic_buffer(cookie_f, buf, 512),MAGIC_TEXT_DEF,60);
 		if ((!strncmp(text,"data",4))|| (!strncmp((char*)buf,"ID3",3))){
-			strncpy(text,magic_buffer(cookie_f,buf , size),60);
-			strncpy(magic_buf, magic_buffer(cookie , buf , size),60);
+			magic_strncpy(text,magic_buffer(cookie_f,buf , size),NULL,60);
+			magic_strncpy(magic_buf, magic_buffer(cookie , buf , size),MAGIC_MIME_DEF,60);
 		}
 		else{
-			strncpy(magic_buf, magic_buffer(cookie , buf , 512),60);
+			magic_strncpy(magic_buf, magic_buffer(cookie , buf , 512),MAGIC_MIME_DEF,60);
 		}
 	}
 	else{
-		strncpy(text,magic_buffer(cookie_f,buf , size),60);
-		strncpy(magic_buf, magic_buffer(cookie , buf , size),60);
+		magic_strncpy(text,magic_buffer(cookie_f,buf , size),MAGIC_TEXT_DEF,60);
+		magic_strncpy(magic_buf, magic_buffer(cookie , buf , size),MAGIC_MIME_DEF,60);
 	}
 
 	if (!strncmp(text,"data",4)){
@@ -562,7 +579,7 @@ static int magic_check_block(unsigned char* buf,magic_t cookie , magic_t cookie_
 	if((strstr(magic_buf,"text/")) || (strstr(magic_buf,"application/") && (strstr(text,"text")))){
 		retval |= M_TXT ;
 		if (deep && count && (count > 60))// current_fs->blocksize))
-			strncpy(magic_buf, magic_buffer(cookie , buf , count-1),60);
+			magic_strncpy(magic_buf, magic_buffer(cookie , buf , count-1),NULL,60);
 	}
 //loop:
 	if ((strstr(magic_buf,"text/plain"))||(strstr(magic_buf,"text/html"))){
