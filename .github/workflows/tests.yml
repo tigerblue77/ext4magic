@@ -88,6 +88,23 @@ jobs:
       - name: Run the test suite unprivileged
         run: ./tests/run_tests.sh --summary "$GITHUB_STEP_SUMMARY"
 
+  shellcheck:
+    name: Lint the shell sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # ubuntu-latest ships shellcheck preinstalled, so there is nothing to
+      # install here. This is the bar the tree is already clean at, issue #48
+      # : not the stricter -S warning or -S style
+      - name: Lint the shell sources
+        run: |
+          shellcheck -x -S error \
+            tests/run_tests.sh tests/lib/*.sh tests/cases/*.sh \
+            tests/unit/build.sh .claude/hooks/session-start.sh
+
   publish-test-results:
     name: Publish the test results
     needs: [test]
