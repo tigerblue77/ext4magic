@@ -56,9 +56,10 @@ On the Ubuntu 24.04 image these sessions start from, three of those are missing 
 `You must install the develop packages "ext2fs , blkid , e2p , uuid"`.
 
 [`.claude/hooks/session-start.sh`](.claude/hooks/session-start.sh) installs them
-at session start, so this should already be done. Its package list is a copy of
-the workflow's, and nothing keeps the two in step — issue #47. It is best effort : if it
-prints a failure on stderr, install them by hand before trying to build.
+at session start, so this should already be done. Its package list and the
+workflow's are the same file — [`.github/dependencies/build-packages.txt`](.github/dependencies/build-packages.txt)
+— so the two cannot drift apart the way issue #47 raised. It is best effort :
+if it prints a failure on stderr, install them by hand before trying to build.
 
 The hook does **not** build the tree. Run `./configure && make` yourself — and
 read the first invariant below before you look at `git status` afterwards.

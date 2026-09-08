@@ -1,0 +1,26 @@
+# Debian/Ubuntu packages ext4magic needs to build and to run the test suite.
+#
+# Two readers share this one file rather than each carrying its own copy :
+# .github/workflows/tests.yml (both the "test" and "build-without-root" jobs)
+# and .claude/hooks/session-start.sh, which installs these in a Claude Code on
+# the web container. Before this file existed the list was hardcoded in all
+# three places and could drift silently — issue #47.
+#
+# Comment lines and blank lines are skipped by both readers ; everything else
+# is passed straight to apt-get install.
+#
+# ext4magic links against e2fsprogs, libmagic, zlib and bzip2, and the suite
+# builds its own filesystems with mke2fs and fills them with debugfs.
+
+build-essential
+autoconf
+automake
+libtool
+libext2fs-dev
+comerr-dev
+libmagic-dev
+libblkid-dev
+uuid-dev
+zlib1g-dev
+libbz2-dev
+e2fsprogs

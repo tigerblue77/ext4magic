@@ -9,9 +9,9 @@
 #   You must install the develop packages "ext2fs , blkid , e2p , uuid"
 #
 # so neither the build nor the test suite can run at all. The package list below
-# is the one in .github/workflows/tests.yml, which is the source of truth : keep
-# the two in step rather than letting this file grow its own idea of the
-# dependencies. Issue #47 is about whether that should stay a convention.
+# is read from .github/dependencies/build-packages.txt, the same file
+# .github/workflows/tests.yml installs from : one file, not two copies that
+# could drift apart. Issue #47 raised the drift risk this settles.
 #
 # This hook is best effort by design. Its failure must not stop a session from
 # starting -- a session that cannot build is still a session that can read the
@@ -24,15 +24,18 @@
 
 set -u
 
-# Ubuntu package names, from the workflow's install step. Already installed ones
-# are a no-op for apt-get, so the whole list is passed rather than only what the
-# probe below found missing : one apt-get invocation, and no second list to
-# maintain
-readonly REQUIRED_PACKAGES=(
-  build-essential autoconf automake libtool
-  libext2fs-dev comerr-dev libmagic-dev libblkid-dev uuid-dev
-  zlib1g-dev libbz2-dev e2fsprogs
-)
+# Two directories up from this hook is the repository root, whether it is
+# reached through $CLAUDE_PROJECT_DIR (how .claude/settings.json invokes this
+# script) or by running the script directly
+readonly REPO_ROOT="${CLAUDE_PROJECT_DIR:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+readonly PACKAGE_LIST="$REPO_ROOT/.github/dependencies/build-packages.txt"
+
+# Ubuntu package names, from the file the workflow's install step reads too.
+# Comment and blank lines are skipped ; already installed packages are a no-op
+# for apt-get, so the whole list is passed rather than only what the probe
+# below found missing : one apt-get invocation, and no second list to maintain
+mapfile -t REQUIRED_PACKAGES < <(grep -v '^#' "$PACKAGE_LIST" | grep -v '^[[:space:]]*$')
+readonly REQUIRED_PACKAGES
 
 # What configure.ac checks for, one header per library ext4magic links against
 readonly REQUIRED_HEADERS=(

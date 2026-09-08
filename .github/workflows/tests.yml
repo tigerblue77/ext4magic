@@ -22,15 +22,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
 
-      # ext4magic links against e2fsprogs, libmagic, zlib and bzip2, and the
-      # suite builds its own filesystems with mke2fs and fills them with debugfs
+      # The package list lives in .github/dependencies/build-packages.txt, read
+      # by this step and by .claude/hooks/session-start.sh alike — see that
+      # file for why these are needed (issue #47)
       - name: Install the build and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            build-essential autoconf automake libtool \
-            libext2fs-dev comerr-dev libmagic-dev libblkid-dev uuid-dev \
-            zlib1g-dev libbz2-dev e2fsprogs
+          grep -v '^#' .github/dependencies/build-packages.txt | grep -v '^[[:space:]]*$' \
+            | xargs sudo apt-get install --yes --no-install-recommends
 
       - name: Build ext4magic
         run: |
@@ -72,10 +71,8 @@ jobs:
       - name: Install the build and test dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install --yes --no-install-recommends \
-            build-essential autoconf automake libtool \
-            libext2fs-dev comerr-dev libmagic-dev libblkid-dev uuid-dev \
-            zlib1g-dev libbz2-dev e2fsprogs
+          grep -v '^#' .github/dependencies/build-packages.txt | grep -v '^[[:space:]]*$' \
+            | xargs sudo apt-get install --yes --no-install-recommends
 
       - name: Build ext4magic
         run: |
