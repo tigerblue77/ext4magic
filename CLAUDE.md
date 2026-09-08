@@ -39,12 +39,18 @@ container :
 | `./tests/run_tests.sh` as root | `260 test cases passed (940 assertions)`, exit 0, about 7 minutes |
 | `./tests/run_tests.sh` unprivileged | `145 test cases passed, 115 skipped (625 assertions)`, exit 0 |
 
-Both are CI gates, and CI runs no other check : **there is no linter and no
-formatter in this repository.** The shell sources carry `# shellcheck disable=`
-directives, so shellcheck is clearly run by hand, but no bar is enforced —
-`shellcheck -x -S error` over `tests/` is clean, `-S warning` reports 7 and
-`-S style` reports 16. Do not add a lint gate as a side effect of another
-change — whether one should exist at all is issue #48.
+Both are CI gates. So is a third : `shellcheck -x -S error` over
+`tests/run_tests.sh tests/lib/*.sh tests/cases/*.sh tests/unit/build.sh
+.claude/hooks/session-start.sh`, added deliberately by issue #48 because the
+tree was already clean at that bar — the shell sources carry `# shellcheck
+disable=` directives, so shellcheck was clearly being run by hand, but nothing
+enforced it until #48 landed. **There is still no formatter in this
+repository, and still no gate stricter than `-S error`** : `-S warning` reports
+7 findings on `tests/` alone, each a judgment call (a variable read only
+indirectly, a suppression already justified inline) rather than a bug, which is
+why the bar stopped at `error`. The `-S error` gate itself is deliberate and
+already there — raising it further is a decision of the same size and should
+not happen as a side effect of an unrelated change.
 
 ## What CI needs that a fresh container does not have
 
@@ -280,8 +286,10 @@ the unit tests without it would be testing a different program. The comment in
 ## Things not to do here
 
 - Do not commit `configure` or `config.h.in` churn. See the first invariant.
-- Do not add a linter, a formatter or a CI job as a side effect of another
-  change. There is deliberately none.
+- Do not raise the shellcheck bar past `-S error`, add a formatter, or add
+  another CI job, as a side effect of an unrelated change. The `-S error` gate
+  itself is deliberate, added via #48 — going further is a decision of the
+  same size.
 - Do not reformat old C. Match the file.
 - Do not "fix" a test case that is written to fail loudly. Invert it, with the
   behaviour change, in one commit.
