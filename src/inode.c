@@ -113,7 +113,7 @@ static void local_dump_extents(FILE *f, const char *prefix, struct ext2_inode * 
         errcode_t               errcode;
 
 	
-        errcode = local_ext2fs_extent_open(current_fs, *inode, &handle);
+        errcode = ext2fs_extent_open2(current_fs, 0, inode, &handle);
         if (errcode)
                 return;
 
@@ -208,7 +208,7 @@ static void local_dump_extents(FILE *f, const char *prefix, struct ext2_inode * 
         }
 	if (printed)
                 fprintf(f, "\n\n");
-	 local_ext2fs_extent_free(handle);
+	 ext2fs_extent_free(handle);
 	
 	
 }
