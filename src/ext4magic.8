@@ -18,13 +18,13 @@ filesystem Journal. ext4magic can extract the information from the
 Journal, and can restore files in entire directory trees, provided that
 the information in the Journal are sufficient. This tool can recover
 the most file types, can recover large and sparse files, 
-recovered files with orginal filename, with the orginal owner an
-group, the orginal file mode bits, and also the old atime/mtime stamp.
+recovered files with original filename, with the original owner an
+group, the original file mode bits, and also the old atime/mtime stamp.
 
 The filesystem Journal has a very different purpose, and it will not
 be possible to recover any file at any time. Many factors affects which data and how
 long the data store in the Journal. Read the ext4magic documentation for more
-extensive information about the filesytem Journal.
+extensive information about the filesystem Journal.
 
 
 
@@ -46,7 +46,7 @@ The third step is trying to restore the remaining files without inode copies. Th
 .TP
 .B
 \-M
-Try to recover all files. This option should be used if the entire Filessytem was deleted.
+Try to recover all files. This option should be used if the entire Filesystem was deleted.
 .TP
 .B
 \-m
@@ -140,7 +140,7 @@ With the option
 it print a copy of the filesystem data block with this transaction number from the Journal.
 
 .B
-# ext4magic /dir/filesytem.iso \-B 97 \-t 22
+# ext4magic /dir/filesystem.iso \-B 97 \-t 22
 
 print a hexdump of the copy from filesystem block number 97, which has been writing to the Journal with the transaction number 22. All copies of a particular data block in the Journal and the associated transaction numbers you can find with the optional Option
 .B
@@ -162,13 +162,13 @@ n
 is the Inode number. Without any other option, the output is the content of the real filesystem Inode. With a optional 
 .B
 \-x 
-additional output of a list of all data blocks addressed by this Inode. If Inode is a directory Inode, the content of the directory entrys also printed. 
+additional output of a list of all data blocks addressed by this Inode. If Inode is a directory Inode, the content of the directory entries also printed. 
 
 
 Together with one of the following option
 .B
 \-T ; \-J 
-the output is not the content from the real filesystem Inode. The content of all differend Inode copies found in the Journal are printed.
+the output is not the content from the real filesystem Inode. The content of all different Inode copies found in the Journal are printed.
 
 
 with the option 
@@ -239,7 +239,7 @@ Expert Options:
 by configure. This makes it possible to open and recover front corrupted file systems. 
 In the current version it is possible to address backup superblocks 
 and the attempt to recover of the Journal address from the data of the super block, and recover all undamaged files
-after the filesytem was partially damaged or overwritten. 
+after the filesystem was partially damaged or overwritten. 
 
 .TP
 .B
@@ -316,7 +316,7 @@ before
 .B
 Time Options: 
 With this options you specify a time window at which the program searches for matching time stamps in the Journal data.
-ext4magic required for most internaly functions two times. A time "after" and a time "before". 
+ext4magic required for most internally functions two times. A time "after" and a time "before". 
 
 Found Inode only accepted, if not deleted and there time stamp less than "before". If the delete time is less then "after", the Inode are also not used. ext4magic is still trying to find for valid directory Inode also a time-matching directory data. For a recover action "before" set to a value at which the data deleted, and 
 "after" set to a value at which the data available. Inodes and directory data with other timestamps will be skipped and not used.
@@ -391,7 +391,7 @@ optional you can select a external copy of the Journal file. Without this option
 select the output directory. There, the recovered files were written. If it does not exist, it is created. By default, created files are written to the subdirectory "
 .B
 RECOVERDIR
-" in the workpath of the actual shell. This output directory can not be on the same filesystem to be tested filesytem, and should have sufficient space to write the recovered files. The filesystem on this directory should be also ext3/4, otherwise, not LINUX like filesytems generate some errors while writing the file properties.
+" in the workpath of the actual shell. This output directory can not be on the same filesystem to be tested filesystem, and should have sufficient space to write the recovered files. The filesystem on this directory should be also ext3/4, otherwise, not LINUX like filesystems generate some errors while writing the file properties.
 Either you must first changed with the shell in such a suitable filesystem, or you must specify the
 .B
 \-d 
@@ -469,7 +469,7 @@ This can also set to an alternate <target_dir> with the option
 All files become the old filename and if possible, also the old file properties. A subdirectory tree can set with 
 .B 
 "\-f dirname"
-oder 
+or 
 .B
 "\-I inodenumber"
 If use with a given Inode number, the directory name is set to
@@ -479,7 +479,7 @@ If use with a given Inode number, the directory name is set to
 The Time options affect the search. If a file name already exists, or you recover again, it not overwrite files, and a new filename by added a final 
 .B
 "#"
-will created. The maximum ist the extension "
+will created. The maximum is the extension "
 .B
 #####
 " for a filename.
@@ -510,7 +510,7 @@ recovers directory tree, is the same as
 
 But two very important differences: 
 Recover of all matched Inodes, even if the blocks allocated, 
-and recover if possible the old directory properties. Also empty dirctories will be restored. 
+and recover if possible the old directory properties. Also empty directories will be restored. 
 This recovers all deleted and all undeleted files, and it's possible to recover older file versions or directory versions.
 
 In completely deleted directories the behavior "
@@ -558,7 +558,7 @@ the output is the actual filesystem root Inode. In first example input the pathn
 .B
  # ext4magic /tmp/filesystem.iso \-f / \-T \-x
 
-use filesystem image "/tmp/filesystem.iso", search and print all transactions of the Block which included the root Inode, and print all differend
+use filesystem image "/tmp/filesystem.iso", search and print all transactions of the Block which included the root Inode, and print all different
 Inode. Inclusiv the blocklist off the data blocks. If it's a directory, then print also for each individual Inode the content of the directory.
 
 
