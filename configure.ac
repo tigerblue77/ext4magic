@@ -3,6 +3,7 @@ AC_INIT(configure.ac)
 AM_CONFIG_HEADER(config.h)
 
 AM_INIT_AUTOMAKE(ext4magic, 0.3.2)
+AM_MAINTAINER_MODE
 
 AC_LANG_C
 AC_PROG_CC
