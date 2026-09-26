@@ -14,6 +14,7 @@ has a document is linked rather than copied :
 | The manual page | [`src/ext4magic.8`](src/ext4magic.8) |
 | The test suite : what it covers, what it deliberately does not, how to add a case | [`tests/README.md`](tests/README.md) |
 | What CI runs, and why it runs it twice | [`.github/workflows/tests.yml`](.github/workflows/tests.yml) |
+| Which checks gate a merge, and why the third job is not one of them | [`.github/workflows/dependabot-auto-merge.yml`](.github/workflows/dependabot-auto-merge.yml)'s header, [`.github/rulesets/master.json`](.github/rulesets/master.json) |
 | History | [`ChangeLog`](ChangeLog), [`NEWS`](NEWS), [`TODO`](TODO) |
 
 ## Build and test
@@ -27,7 +28,7 @@ has a document is linked rather than copied :
 CI are `--list` and `-f PATTERN`, and `EXT4MAGIC_BINARY` points the suite at a
 binary built elsewhere.
 
-Run the suite as **root**. Below root it still passes, but 115 of its 260 cases
+Run the suite as **root**. Below root it still passes, but 115 of its 262 cases
 skip — see `tests/README.md`, "Run it as root", for why that is about ext4magic
 rather than about the suite.
 
@@ -36,8 +37,8 @@ container :
 
 | Run | Result |
 | --- | --- |
-| `./tests/run_tests.sh` as root | `260 test cases passed (940 assertions)`, exit 0, about 7 minutes |
-| `./tests/run_tests.sh` unprivileged | `145 test cases passed, 115 skipped (625 assertions)`, exit 0 |
+| `./tests/run_tests.sh` as root | `262 test cases passed (951 assertions)`, exit 0, about 7 minutes |
+| `./tests/run_tests.sh` unprivileged | `147 test cases passed, 115 skipped (636 assertions)`, exit 0 |
 
 Both are CI gates, and CI runs no other check : **there is no linter and no
 formatter in this repository.** The shell sources carry `# shellcheck disable=`
@@ -136,6 +137,20 @@ it to `SOURCES_UNDER_TEST` there and its globals to `tests/unit/stubs.c`.
   places. Match the file you are in, do not reformat around your change.
 - **Prose in this repository puts a space before `:` and `;`.** It is
   consistent across `README`, `tests/README.md` and the recent commit bodies.
+- **Dependabot's minor and patch updates merge themselves once CI is green**, in
+  every repository of this maintainer. A Dependabot pull request sitting open
+  with every check green is a defect in that process, not a task for a person.
+  A public repository like this one gets it the way wader/postfix-relay does :
+  the required checks recorded in `.github/rulesets/master.json`, GitHub
+  enforcing them, and `gh pr merge --auto` in
+  `.github/workflows/dependabot-auto-merge.yml`. A private one cannot, since
+  GitHub Free enforces no ruleset on a private repository whoever owns it, so
+  its workflow reads the same file and does the checking itself before merging.
+  Either way the list of required checks is a file in the tree, and what gets
+  through is decided by CI rather than by a guess about which ecosystem is
+  risky : majors wait for a person, and so does anything red. Renaming a job in
+  `tests.yml` means renaming it in the ruleset in the same commit —
+  `tests/cases/15_the_checks_that_gate_a_merge.sh` fails otherwise.
 
 ## Non-obvious invariants
 

@@ -40,6 +40,7 @@ gets a readable result.
 | File | What it checks |
 | --- | --- |
 | `cases/10_the_test_suite_itself.sh` | The runner and the two reports : the ways this suite could stay green while verifying nothing |
+| `cases/15_the_checks_that_gate_a_merge.sh` | `.github/rulesets/master.json` against the workflows : every check it requires is reported by a job, and it still gates master |
 | `cases/20_command_line_options.sh` | Every option, the modes that exclude each other, and what the usage text promises |
 | `cases/30_time_window.sh` | The `-a` / `-b` window, its two defaults, and the 1980 floor under it |
 | `cases/40_filesystem_handling.sh` | Opening a filesystem and refusing to, every type, block size and inode size, external journals, and the promise that nothing is ever written back |
