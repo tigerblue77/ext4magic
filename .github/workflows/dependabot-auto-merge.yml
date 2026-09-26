@@ -1,0 +1,84 @@
+# Dependabot's minor and patch updates merge themselves once the checks
+# .github/rulesets/master.json requires are green on them. Majors are left open
+# for a person : they are the ones that can change behaviour. The same shape as
+# wader/postfix-relay's workflow of the same name, which is the reference this
+# maintainer's repositories are aligned on.
+#
+# "gh pr merge --auto" asks GitHub to merge LATER, once the required checks
+# pass, and it is GitHub that does the waiting. Two repository settings make
+# that true, and neither is a file :
+# - "Allow auto-merge", in Settings > General ;
+# - a ruleset on master requiring the checks. .github/rulesets/master.json is
+#   that ruleset, in the form Settings > Rules > Rulesets > Import takes. Import
+#   it BEFORE this file reaches master. With nothing required, a pull request
+#   whose checks are still running, or already red, is one GitHub would let
+#   through, and gh does not queue those : it merges them on the spot, whether
+#   "Allow auto-merge" is on or not. That setting is not an off switch ;
+#   disabling this workflow is.
+#
+# There is deliberately no fallback to a plain "gh pr merge". It would only
+# ever run when "--auto" could not be queued, which is exactly when nothing is
+# requiring a check, so it would land the update with no check having run. A
+# pull request that cannot be queued stays open, which is visible, rather than
+# merged, which is not.
+#
+# Required checks are matched by the job's display name, never the workflow's
+# name nor the job's key. The names that exist are "Build and run the test
+# suite", "Check the suite still runs unprivileged" and "Publish the test
+# results", from "Tests", and "auto-merge", this file's own job. The publisher
+# also reports a check run named "Test results" of its own, which is not a job.
+# tests/cases/15_the_checks_that_gate_a_merge.sh fails when the ruleset names
+# something that no job reports, which is what renaming a job would leave.
+#
+# The two runs of the suite are required, and nothing else is :
+# - "Publish the test results" is skipped on a pull request from a fork, and a
+#   skipped check counts as a passing one. It also goes green over a red suite :
+#   the failure is written into the "Test results" check run it creates, not
+#   into its own conclusion. Its verdict is the junit file of the first job
+#   anyway, so requiring it would add a way to pass and nothing to check ;
+# - "auto-merge" is skipped on every pull request but Dependabot's, and it
+#   reports what it did rather than a verdict on the change.
+#
+# Every ecosystem, not only github-actions -- which is the only one today : what
+# decides whether an update is safe is the suite every one of these pull
+# requests runs, not a guess about which ecosystem is risky.
+#
+# The merge is a merge commit, as every pull request on master is.
+#
+# The merge is made in GITHUB_TOKEN's name, and a push made with that token
+# starts no workflow : after a Dependabot update lands, "Tests" does not run on
+# master, and the published results have no fresh baseline to compare the next
+# pull request against until the next merge a person makes. Using a personal
+# token stored as a Dependabot secret would change that. It is a choice, not an
+# oversight.
+
+name: Dependabot auto-merge
+
+on: pull_request
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  auto-merge:
+    runs-on: ubuntu-latest
+    # A backstop : two API calls, and nothing here should ever sit for GitHub's
+    # default of six hours
+    timeout-minutes: 5
+    if: github.event.pull_request.user.login == 'dependabot[bot]'
+    steps:
+      - name: Fetch Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v3
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for minor and patch updates
+        if: >-
+          steps.metadata.outputs.update-type == 'version-update:semver-minor' ||
+          steps.metadata.outputs.update-type == 'version-update:semver-patch'
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
