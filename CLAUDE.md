@@ -123,9 +123,10 @@ it to `SOURCES_UNDER_TEST` there and its globals to `tests/unit/stubs.c`.
   measurement, the options considered and what was rejected. Cite the number in
   the code and in the commit when you touch something an issue covers.
 - **Issues and pull requests are written in English** — titles, bodies and
-  comments — in every repository of this maintainer but the private ones of the
-  `Dragnix-Tigerblue77` organisation, where they are written in French while
-  code and commit messages stay in English. This one is public and outside it,
+  comments — in every repository of this maintainer but the private ones whose
+  own instructions put issues and pull requests in French, the private
+  repositories of the `Dragnix-Tigerblue77` organisation among them, where
+  code and commit messages still stay in English. This one is public,
   so the rule holds here in full. An issue or a pull request found in another
   language is never passed over in silence : tell the maintainer, every time,
   with the link, and offer a translation, made once they agree. Issue #53, and
