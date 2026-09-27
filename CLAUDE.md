@@ -122,13 +122,16 @@ it to `SOURCES_UNDER_TEST` there and its globals to `tests/unit/stubs.c`.
 - **Issues.** They are the design record here, not a bug queue : they carry the
   measurement, the options considered and what was rejected. Cite the number in
   the code and in the commit when you touch something an issue covers.
-- **Issues are written in English** — titles, bodies and comments — in every
-  repository of this maintainer but the private ones of the
-  `Dragnix-Tigerblue77` organisation, where another language is fine. This one
-  is public and outside it, so the rule holds here in full. An issue found in
-  another language is never passed over in silence : tell the maintainer, every
-  time, with the link, and offer a translation, made once they agree. Issue #53,
-  carried over from Tigerblue77-personal/Homelab_Ansible_deployment#1006.
+- **Issues and pull requests are written in English** — titles, bodies and
+  comments — in every repository of this maintainer but the private ones of the
+  `Dragnix-Tigerblue77` organisation, where they are written in French while
+  code and commit messages stay in English. This one is public and outside it,
+  so the rule holds here in full. An issue or a pull request found in another
+  language is never passed over in silence : tell the maintainer, every time,
+  with the link, and offer a translation, made once they agree. Issue #53,
+  carried over from Tigerblue77-personal/Homelab_Ansible_deployment#1006, and
+  issue #55 for pull requests, carried over from
+  Tigerblue77-personal/Homelab_Ansible_deployment#1037.
 - **License headers.** Every `src/*.c` and `src/*.h` file that is original to
   ext4magic opens with the GPL-2-or-later block naming Roberto Maar. Keep it on
   files you edit, and copy it onto any new C file. The files lifted from libmagic,
