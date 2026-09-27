@@ -124,20 +124,26 @@ it to `SOURCES_UNDER_TEST` there and its globals to `tests/unit/stubs.c`.
   the code and in the commit when you touch something an issue covers.
 - **Issues and pull requests are written in English** — titles, bodies and
   comments — in every repository of this maintainer but the private ones whose
-  own instructions put issues and pull requests in French, the private
-  repositories of the `Dragnix-Tigerblue77` organisation among them, where
-  code and commit messages still stay in English. This one is public,
-  so the rule holds here in full. An issue or a pull request found in another
-  language is never passed over in silence : tell the maintainer, every time,
-  with the link, and offer a translation, made once they agree. Issue #53, and
-  issue #55 for pull requests.
-- **A public repository never names a private one**, nor cites its issues or
-  pull requests, nor describes what it holds — not in a file, a commit message,
-  a branch name, an issue, a pull request or a comment. This one is public. A
-  rule shared across the maintainer's repositories is carried here without
-  citing its origin when that origin is private : "the maintainer's private
-  repositories" is as specific as it gets. The `Dragnix-Tigerblue77`
-  organisation is public and may be named. Issue #60.
+  own instructions put issues and pull requests in French, where code and
+  commit messages still stay in English. This one is public, so the rule holds
+  here in full. An issue or a pull request found in another language is never
+  passed over in silence : tell the maintainer, every time, with the link, and
+  offer a translation, made once they agree. Issue #53, and issue #55 for pull
+  requests.
+- **A repository cites another of the maintainer's repositories only where it
+  calls it** : where it pulls that one's image, vendors its code, downloads its
+  release or registers something for it. Its name, its issues and its pull
+  requests all count as citing it. It is never cited to say where a rule or a
+  lesson came from, that a copy of a rule exists elsewhere, or how the other
+  one does it : such a citation is a dependency with nothing keeping it true. A
+  rule shared across the maintainer's repositories is written out in full in
+  each one, standing on its own, with no origin citation. **A public repository
+  never names a private one at all**, not even one it calls, nor cites its
+  issues or pull requests, nor describes what it holds — not in a file, a
+  commit message, a branch name, an issue, a pull request or a comment. This
+  one is public. Third-party upstream projects, e2fsprogs or the original
+  ext4magic, are not the maintainer's repositories and this rule does not
+  reach them. Issue #60, and issue #62.
 - **Open every issue and pull request assigned to `tigerblue77`, and never as
   a draft.** Both are fields on the call that creates the thing, and the
   session that would come back to repair them has ended by then. A web
@@ -145,9 +151,8 @@ it to `SOURCES_UNDER_TEST` there and its globals to `tests/unit/stubs.c`.
   to be converted before it can be merged at all, so open it ready for review
   and say in the body what is not verified. Unassigned work is on nobody's
   list, so it is remembered rather than scheduled. This is what the
-  maintainer's sessions do, in every repository of theirs
-  (tigerblue77/Dell_iDRAC_fan_controller_Docker#448) ; a contributor's pull
-  request is theirs to assign and to open as a draft.
+  maintainer's sessions do ; a contributor's pull request is theirs to assign
+  and to open as a draft.
 - **License headers.** Every `src/*.c` and `src/*.h` file that is original to
   ext4magic opens with the GPL-2-or-later block naming Roberto Maar. Keep it on
   files you edit, and copy it onto any new C file. The files lifted from libmagic,
