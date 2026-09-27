@@ -132,6 +132,16 @@ it to `SOURCES_UNDER_TEST` there and its globals to `tests/unit/stubs.c`.
   carried over from Tigerblue77-personal/Homelab_Ansible_deployment#1006, and
   issue #55 for pull requests, carried over from
   Tigerblue77-personal/Homelab_Ansible_deployment#1037.
+- **Open every issue and pull request assigned to `tigerblue77`, and never as
+  a draft.** Both are fields on the call that creates the thing, and the
+  session that would come back to repair them has ended by then. A web
+  session's harness defaults to draft, which buys nothing here : a draft has
+  to be converted before it can be merged at all, so open it ready for review
+  and say in the body what is not verified. Unassigned work is on nobody's
+  list, so it is remembered rather than scheduled. This is what the
+  maintainer's sessions do, in every repository of theirs
+  (tigerblue77/Dell_iDRAC_fan_controller_Docker#448) ; a contributor's pull
+  request is theirs to assign and to open as a draft.
 - **License headers.** Every `src/*.c` and `src/*.h` file that is original to
   ext4magic opens with the GPL-2-or-later block naming Roberto Maar. Keep it on
   files you edit, and copy it onto any new C file. The files lifted from libmagic,
