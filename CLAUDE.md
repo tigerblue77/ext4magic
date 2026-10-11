@@ -179,6 +179,15 @@ it to `SOURCES_UNDER_TEST` there and its globals to `tests/unit/stubs.c`.
   follows *Commit messages* above for the rest. Shared with every repository of
   the maintainer that carries agent instructions, and written out in full in
   each.
+- **A reply is as short as the decision it carries.** A wall of prose is
+  skipped whole, which costs more than saying too little : what got skipped
+  included the question. So the verdict first — for a decision to take, what
+  the maintainer gains and what it costs them, in two lines — then the numbers
+  behind it, the question that needs an answer, and nothing else. The reasoning
+  that earned a conclusion is not lost by leaving it out : it is in the commit
+  message and the pull request body, where a reviewer can go and find it, and
+  repeating it in the chat is the second copy that drifts. Tables and lists
+  over paragraphs, and never a restatement of what was just asked.
 - **License headers.** Every `src/*.c` and `src/*.h` file that is original to
   ext4magic opens with the GPL-2-or-later block naming Roberto Maar. Keep it on
   files you edit, and copy it onto any new C file. The files lifted from libmagic,
